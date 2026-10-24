@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.4.0 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.5.0 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -56,9 +56,10 @@
     ["lobby", "홈 로비", "홈 배경 위에 캐릭터들이 서서 돌아다닙니다. 누르면 말을 겁니다. 아래 목록에서 누구를 둘지 고르고, 홈의 [배치] 버튼으로 옮깁니다."],
     ["hidePlate", "홈 대표 카드 숨기기", "홈 왼쪽의 대표 캐릭터 카드를 숨겨 로비를 넓게 씁니다."],
     ["attend", "출석 이벤트", "7일 출석판을 도장 찍는 출석부로 바꾸고, 캐릭터가 옆에서 반겨 줍니다."],
+    ["autoScroll", "스토리 자동 스크롤", "챕터 목록과 챕터 지도를 열면 지금 할 차례(계속 · 플레이)로 바로 내려갑니다."],
   ];
   const DEFAULT_OPTS = { box: true, sticker: true, motion: true, storySd: true, battleSd: true, loading: true,
-    field: true, team: true, lobby: true, hidePlate: true, attend: true };
+    field: true, team: true, lobby: true, hidePlate: true, attend: true, autoScroll: true };
   const LOBBY_LINES = ["반가워!", "오늘도 힘내자~", "말랑말랑…", "간식 없어?", "같이 모험 가자!", "쿨쿨…", "볼 꼬집지 마!", "어디 가?", "히히, 들켰다!", "출석 도장 찍었어?"];
   const DEFAULT_GEN = {
     connectionId: "",
@@ -333,6 +334,12 @@ ${T} .vn-plate[data-gfx-sd] { opacity: 0 !important; }
 @keyframes gfx-cast-in { from { opacity: 0; translate: -50% 8%; } to { opacity: 1; translate: -50% 0; } }
 @keyframes gfx-talk-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-3%) scale(0.98, 1.03); } 100% { transform: none; } }
 
+/* Chapter map: the node's button inside its card, at the card's right end. */
+${T} .node-row { position: relative; }
+${T} .node-row > .node-card { flex: 1 1 auto !important; padding-right: 8.5em !important; }
+${T} .node-row > .node-action { position: absolute !important; right: 0.9em; top: 50%; translate: 0 -50%; margin: 0 !important; z-index: 2; }
+${T} .node-row > .node-action .act { padding: 0.25em 1em !important; }
+
 /* ── Battle ────────────────────────────────────────────────────────────────────────────────────── */
 ${T} .cbt .ava { border: 2.5px solid var(--gfx-line) !important; border-radius: 16px !important; clip-path: none !important;
   background: linear-gradient(170deg, var(--gfx-sky1), var(--gfx-sky2)) !important; }
@@ -547,7 +554,11 @@ ${HP} .hm-plate { display: none !important; }
 /* Lobby mode, as in the Trickcal Revive lobby: the cast stands large across the screen and the home's own
    controls sit over them — round icons with outlined labels, a see-through top bar. */
 ${LB} .hm-scene, ${LB} .hm-dock { position: relative; z-index: 4; }
-${LB} .hm-scene { pointer-events: none; } ${LB} .hm-scene > * { pointer-events: auto; }
+/* The scene's wide boxes (the right-hand column spans most of the screen) let the pointer through to the
+   lobby; only its real controls take it. */
+${LB} .hm-scene, ${LB} .hm-scene * { pointer-events: none !important; }
+${LB} .hm-scene button, ${LB} .hm-scene a, ${LB} .hm-scene [role="button"], ${LB} .hm-scene input, ${LB} .hm-scene button * { pointer-events: auto !important; }
+${LB} .hm-scene button * { pointer-events: none !important; }
 ${LB} .gf-stage:has(.hm-screen) .gf-bar { background: linear-gradient(180deg, color-mix(in srgb, var(--gfx-ink) 55%, transparent), transparent) !important; border-bottom: 0 !important; }
 ${LB} .hm-dock { background: none !important; border: 0 !important; box-shadow: none !important; justify-content: center; gap: 1.2em; }
 ${LB} .hm-tile { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; display: flex !important; flex-direction: column !important; align-items: center !important;
@@ -581,7 +592,7 @@ ${LB} .hm-cta { width: auto !important; height: auto !important; min-height: 0 !
 ${LB} .hm-cta .title, ${LB} .hm-cta .nodes { display: none !important; }
 ${LB} .hm-cta .big { font-size: calc(var(--f) * 2.2) !important; line-height: 1 !important; }
 ${LB} .hm-slot-bg { opacity: 0.85; }
-.gfx-lobby .who { position: absolute; translate: -50% -100%; height: calc(54% * var(--s, 1)); aspect-ratio: 2 / 3; pointer-events: auto; cursor: pointer;
+.gfx-lobby .who { position: absolute; translate: -50% -100%; height: calc(40% * var(--s, 1)); aspect-ratio: 2 / 3; pointer-events: auto; cursor: pointer;
   animation: gfx-wander var(--d, 11s) ease-in-out infinite; animation-delay: var(--dl, 0s); }
 .gfx-lobby .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-bob 1.9s ease-in-out infinite; animation-delay: var(--bdl, 0s); }
 .gfx-lobby .who img { max-width: 150%; max-height: 100%; object-fit: contain; filter: ${STICKER}; -webkit-user-drag: none; user-select: none; }
@@ -605,7 +616,7 @@ ${LB} .hm-slot-bg { opacity: 0.85; }
 .gfx-lobby[data-edit] .who, .gfx-lobby[data-edit] .who .flip { animation: none; outline: 2.5px dashed var(--gfx-accent); outline-offset: 2px; border-radius: 12px; cursor: grab; touch-action: none; }
 .gfx-lobby[data-edit] .who .body { animation: none; }
 .gfx-lobby[data-edit] { background: color-mix(in srgb, var(--gfx-ink) 25%, transparent); pointer-events: auto; }
-.gfx-lobby-tools { position: absolute; left: 50%; top: 2%; translate: -50% 0; display: flex; gap: 0.5em; pointer-events: auto; z-index: 5; }
+.gfx-lobby-tools { position: absolute; left: 50%; top: 2%; translate: -50% 0; display: flex; gap: 0.5em; pointer-events: auto; z-index: 500; }
 .gfx-lobby-tools button { font-family: "Jua", "Malgun Gothic", sans-serif; font-size: calc(var(--f, 10px) * 0.95); padding: 0.3em 0.9em; cursor: pointer;
   color: var(--gfx-text); background: var(--gfx-card); border: 2px solid var(--gfx-line); border-radius: 999px; box-shadow: 0 0.18em 0 var(--gfx-line); }
 .gfx-lobby-tools button[data-main] { background: var(--gfx-accent); color: #fff; }
@@ -952,6 +963,7 @@ img.baked { filter: none !important; }
         if (shade) shade.after(t); else arena.prepend(t);
       } else if (!field && tiles) tiles.remove();
     }
+    paintScroll(root, on && prefs.opts.autoScroll);
     paintTeam(root, on && prefs.opts.team);
     paintLobby(root, on && prefs.opts.lobby);
     paintAttend(root, on && prefs.opts.attend);
@@ -963,6 +975,31 @@ img.baked { filter: none !important; }
     }
   }
   const pick = (list) => (list.length ? list[Math.floor(Math.random() * list.length)] : "");
+
+  /* ── Story lists open at the latest entry ──
+   * Once per visit to the chapter list or a chapter's map, the list scrolls so the next thing to play (the
+   * chapter with 계속, the node with 플레이) sits in the middle. A list the player has already scrolled is left
+   * alone, and the game keeps that position across its own redraws. */
+  let scrolledFor = "", scrolledBox = null, scrolledAt = 0;
+  function paintScroll(root, enabled) {
+    const h = host();
+    const view = h && h._hudView;
+    const spots = { chapters: [".sel-scroll", ".btn-go", ".btn-enter"], chapter: [".cap-scroll", "[data-play]", "[data-replay]"] };
+    const spot = spots[view];
+    if (!enabled || !spot) { if (!spot) scrolledFor = ""; return; }
+    const key = view + ":" + (view === "chapter" ? String(h._planChapter ?? "") + ":" + (h._difficulty || "") : "");
+    const box = root.querySelector(spot[0]);
+    if (scrolledFor === key && (box === scrolledBox || !box || box.scrollTop > 8 || performance.now() - scrolledAt > 4000)) return;
+    if (!box || box.scrollHeight <= box.clientHeight + 4) return;
+    let target = root.querySelector(spot[1]);
+    if (!target) { const all = root.querySelectorAll(spot[2]); target = all[all.length - 1]; }
+    if (!target) return;
+    if (scrolledFor !== key && box.scrollTop > 8) { scrolledFor = key; scrolledBox = box; return; }
+    scrolledFor = key; scrolledBox = box; scrolledAt = performance.now();
+    const row = target.closest(".node-row, .node, .ch, li, article") || target;
+    const top = row.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+    box.scrollTo({ top: Math.max(0, top - box.clientHeight / 2 + row.getBoundingClientRect().height / 2), behavior: "smooth" });
+  }
 
   /* ── Story cast line-up (Trickcal manner) ──
    * Everyone with an SD who has spoken in this scene stays on stage, large, standing behind the dialogue box;
@@ -1107,26 +1144,35 @@ img.baked { filter: none !important; }
   }
 
   /* ── Cheek pinch ──
-   * Pressing near a cheek point swaps the sprite for a canvas copy and pulls the pixels around that point toward
-   * the pointer (a liquify-style backward warp: each pixel near the pulled point samples from where it came
-   * from, falling off with distance). Letting go springs it back with a wobble. */
+   * Pressing near a cheek point swaps the sprite for a canvas copy whose cheek follows the pointer, the skin
+   * round it stretching smoothly after it (see render). Letting go springs it back with a wobble. */
   function mirroredIn(node, stop) {
     let m = false;
     for (let n = node; n && n !== stop; n = n.parentElement) { const t = getComputedStyle(n).transform; if (t && t.startsWith("matrix(-")) m = !m; }
     return m;
   }
   function startPinch(img, e, cheeks, rFrac, stop, done) {
-    if (!img || !img.complete || !img.naturalWidth || !cheeks || !cheeks.length) return false;
+    if (!img || !img.complete || !img.naturalWidth) return false;
+    // No cheek set for this SD: any press in the top part (the head of a chibi) pinches right where it lands.
+    if (!cheeks || !cheeks.length) {
+      const b0 = img.getBoundingClientRect();
+      const fy = (e.clientY - b0.top) / b0.height;
+      if (!b0.height || fy < 0.08 || fy > 0.55) return false;
+      cheeks = [{ x: 0.5, y: fy, free: true }];
+      rFrac = Math.max(rFrac, 0.1);
+      img.dataset.freePinch = "1";
+    } else delete img.dataset.freePinch;
     const px = Number(img.dataset.padx) || 0, py = Number(img.dataset.pady) || 0;
-    if (px || py) { cheeks = cheeks.map((c) => ({ x: px + c.x * (1 - 2 * px), y: py + c.y * (1 - 2 * py) })); rFrac *= 1 - 2 * px; }
+    if ((px || py) && !cheeks[0].free) { cheeks = cheeks.map((c) => ({ x: px + c.x * (1 - 2 * px), y: py + c.y * (1 - 2 * py) })); rFrac *= 1 - 2 * px; }
     const box = img.getBoundingClientRect();
     if (!box.width || !box.height) return false;
     const mirrored = mirroredIn(img, stop);
     const lx = mirrored ? box.right - e.clientX : e.clientX - box.left, ly = e.clientY - box.top;
     const rPx = rFrac * box.width;
     let best = null, bestD = Infinity;
-    for (const c of cheeks) { const d = Math.hypot(c.x * box.width - lx, c.y * box.height - ly); if (d < bestD) { bestD = d; best = c; } }
+    for (const c of cheeks) { const d = c.free ? 0 : Math.hypot(c.x * box.width - lx, c.y * box.height - ly); if (d < bestD) { bestD = d; best = c; } }
     if (!best || bestD > rPx * 1.6) return false;
+    if (best.free) best = { x: lx / box.width, y: ly / box.height };
     const w = img.offsetWidth, h = img.offsetHeight, sc = box.width / w;
     const dpr = Math.min(2, window.devicePixelRatio || 1), cw = Math.max(1, Math.round(w * dpr)), ch = Math.max(1, Math.round(h * dpr));
     const canvas = el("canvas", "gfx-pinch");
@@ -1136,27 +1182,63 @@ img.baked { filter: none !important; }
     let src;
     try { ctx.drawImage(img, 0, 0, cw, ch); src = ctx.getImageData(0, 0, cw, ch); } catch { return false; }
     const out = ctx.createImageData(cw, ch);
-    const cx = best.x * cw, cy = best.y * ch, R = rFrac * cw, maxLen = R * 2.4;
+    // The skin moves with the finger: a point q of the original art goes to q + d·g(|q − c|), g a gaussian
+    // round the cheek. Each output pixel p finds the q that lands on it (q = p − d·g(|q − c|), a few fixed-point
+    // steps; it converges while |d| stays under ~1.6σ, so the pull is soft-limited there) and is read with
+    // bilinear filtering. Far from the cheek g is ~0 and the face stays exactly as drawn.
+    // The gaussian is an ellipse turned along the pull: long that way (the stretch), narrow across it, so an
+    // eye or mouth beside the cheek barely moves.
+    const cx = best.x * cw, cy = best.y * ch, R = rFrac * cw, sig = R * 1.3, sigQ = R * 0.85, maxLen = sig * 1.55;
+    const invP = 1 / (2 * sig * sig), invQ = 1 / (2 * sigQ * sigQ);
+    const s = src.data, o = out.data;
+    function sample(qx, qy, oi) {
+      const x0 = Math.floor(qx), y0 = Math.floor(qy), fx = qx - x0, fy = qy - y0;
+      const xa = Math.min(cw - 1, Math.max(0, x0)), xb = Math.min(cw - 1, Math.max(0, x0 + 1));
+      const ya = Math.min(ch - 1, Math.max(0, y0)), yb = Math.min(ch - 1, Math.max(0, y0 + 1));
+      const i00 = (ya * cw + xa) * 4, i10 = (ya * cw + xb) * 4, i01 = (yb * cw + xa) * 4, i11 = (yb * cw + xb) * 4;
+      const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+      // Premultiplied by alpha, so the transparent margin does not bleed a dark fringe into the edge.
+      const a00 = s[i00 + 3] * w00, a10 = s[i10 + 3] * w10, a01 = s[i01 + 3] * w01, a11 = s[i11 + 3] * w11, a = a00 + a10 + a01 + a11;
+      if (a < 0.5) { o[oi + 3] = 0; return; }
+      for (let k = 0; k < 3; k++) o[oi + k] = (s[i00 + k] * a00 + s[i10 + k] * a10 + s[i01 + k] * a01 + s[i11 + k] * a11) / a;
+      o[oi + 3] = a;
+    }
     function render(dx, dy) {
+      // Soft limit: past maxLen the cheek keeps giving a little, never tearing.
+      const raw = Math.hypot(dx, dy);
+      if (raw > 0) { const len = maxLen * Math.tanh(raw / maxLen); dx *= len / raw; dy *= len / raw; }
       const len = Math.hypot(dx, dy);
-      if (len > maxLen) { dx *= maxLen / len; dy *= maxLen / len; }
-      out.data.set(src.data);
-      const tx = cx + dx, ty = cy + dy, reff = R * 1.25 + Math.min(len, maxLen) * 0.55, r2 = reff * reff;
-      const x0 = Math.max(0, Math.floor(tx - reff)), x1 = Math.min(cw - 1, Math.ceil(tx + reff));
-      const y0 = Math.max(0, Math.floor(ty - reff)), y1 = Math.min(ch - 1, Math.ceil(ty + reff));
-      const s = src.data, o = out.data;
-      for (let y = y0; y <= y1; y++) {
-        const ddy = y - ty;
-        for (let x = x0; x <= x1; x++) {
-          const ddx = x - tx, d2 = ddx * ddx + ddy * ddy;
-          if (d2 >= r2) continue;
-          let f = 1 - d2 / r2; f *= f;
-          const sx = Math.min(cw - 1, Math.max(0, Math.round(x - dx * f))), sy = Math.min(ch - 1, Math.max(0, Math.round(y - dy * f)));
-          const si = (sy * cw + sx) * 4, oi = (y * cw + x) * 4;
-          o[oi] = s[si]; o[oi + 1] = s[si + 1]; o[oi + 2] = s[si + 2]; o[oi + 3] = s[si + 3];
+      o.set(s);
+      if (len > 0.3) {
+        const ux = dx / len, uy = dy / len;
+        const ext = sig * 3;
+        const x0 = Math.max(0, Math.floor(Math.min(cx, cx + dx) - ext)), x1 = Math.min(cw - 1, Math.ceil(Math.max(cx, cx + dx) + ext));
+        const y0 = Math.max(0, Math.floor(Math.min(cy, cy + dy) - ext)), y1 = Math.min(ch - 1, Math.ceil(Math.max(cy, cy + dy) + ext));
+        for (let y = y0; y <= y1; y++) {
+          for (let x = x0; x <= x1; x++) {
+            let qx = x - dx, qy = y - dy;
+            for (let it = 0; it < 5; it++) {
+              const ex = qx - cx, ey = qy - cy, pu = ex * ux + ey * uy, pv = ey * ux - ex * uy, g = Math.exp(-(pu * pu * invP + pv * pv * invQ));
+              qx = x - dx * g; qy = y - dy * g;
+            }
+            if (Math.abs(qx - x) < 0.02 && Math.abs(qy - y) < 0.02) continue;
+            sample(qx, qy, (y * cw + x) * 4);
+          }
         }
       }
       ctx.putImageData(out, 0, 0);
+      // A stretched cheek flushes pink — painted only where the art is (source-atop).
+      if (len > 0.3) {
+        const t = Math.min(1, len / maxLen), gx = cx + dx * 0.7, gy = cy + dy * 0.7;
+        const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, R * 1.4);
+        grad.addColorStop(0, "rgba(255,120,140," + (0.38 * t).toFixed(3) + ")");
+        grad.addColorStop(1, "rgba(255,120,140,0)");
+        ctx.save();
+        ctx.globalCompositeOperation = "source-atop";
+        ctx.fillStyle = grad;
+        ctx.fillRect(gx - R * 1.4, gy - R * 1.4, R * 2.8, R * 2.8);
+        ctx.restore();
+      }
     }
     render(0, 0);
     img.parentElement.append(canvas);
@@ -1174,10 +1256,11 @@ img.baked { filter: none !important; }
       window.removeEventListener("pointercancel", up);
       if (frame) cancelAnimationFrame(frame);
       const d0x = dx, d0y = dy, pulled = Math.hypot(dx, dy) > R * 0.35, t0 = performance.now();
+      // Snaps back past the rest point and wobbles out, like dough let go.
       const spring = (now) => {
-        const t = now - t0, k = Math.exp(-t / 110) * Math.cos(t / 48);
+        const t = now - t0, k = Math.exp(-t / 150) * Math.cos(t / 62);
         render(d0x * k, d0y * k);
-        if (t < 620) requestAnimationFrame(spring);
+        if (t < 760) requestAnimationFrame(spring);
         else { canvas.remove(); img.style.visibility = ""; done && done(pulled); }
       };
       requestAnimationFrame(spring);
@@ -1255,8 +1338,10 @@ img.baked { filter: none !important; }
     const list = w.cards.filter((c) => sdUrl(c.name) && (mine[c.name] ? mine[c.name].on : true));
     return list.map((c, i) => {
       const e = mine[c.name] || {};
-      const auto = list.length === 1 ? 50 : 12 + (i * 76) / (list.length - 1);
-      return { name: c.name, url: sdUrl(c.name), x: Number.isFinite(e.x) ? e.x : auto, y: Number.isFinite(e.y) ? e.y : 101 - (i % 2) * 5, s: e.s || 1 };
+      // Two rows: the front row low and large, the back row higher up between them.
+      const n = list.length, back = n > 2 && i % 2 === 1;
+      const auto = n === 1 ? 50 : 10 + (i * 80) / (n - 1);
+      return { name: c.name, url: sdUrl(c.name), x: Number.isFinite(e.x) ? e.x : auto, y: Number.isFinite(e.y) ? e.y : back ? 80 : 104, s: e.s || 1 };
     });
   }
   function setHome(name, patch) {
@@ -1295,12 +1380,14 @@ img.baked { filter: none !important; }
       if (scene) scene.after(lobby); else screen.append(lobby);
     }
   }
+  // Perspective: the higher a character's feet stand, the further away — smaller, and behind the ones lower down.
+  const depthScale = (c) => (c.s * (0.6 + 0.4 * Math.min(1, Math.max(0, (c.y - 62) / 42)))).toFixed(3);
   function makeWho(c, i) {
     const who = el("div", "who");
     who.setAttribute("data-name", c.name);
     // Delays come from the clock, so a lobby the game redraws carries on mid-step instead of starting over.
     const d = 9 + ((i * 3.7) % 6), now = performance.now() / 1000;
-    who.style.cssText = "left:" + c.x + "%;top:" + c.y + "%;--s:" + c.s + ";--d:" + d.toFixed(1) + "s;--dl:" + (-((now + i * 2.3) % d)).toFixed(2) + "s;--bdl:" + (-((now + i * 0.7) % 1.9)).toFixed(2) + "s";
+    who.style.cssText = "left:" + c.x + "%;top:" + c.y + "%;--s:" + depthScale(c) + ";z-index:" + Math.round(c.y * 10) + ";--d:" + d.toFixed(1) + "s;--dl:" + (-((now + i * 2.3) % d)).toFixed(2) + "s;--bdl:" + (-((now + i * 0.7) % 1.9)).toFixed(2) + "s";
     who.setAttribute("data-face", faceOf(c.name));
     if (lobbyEdit && c.name === lobbyPicked) who.style.outlineStyle = "solid";
     const flip = el("div", "flip"), body = el("div", "body"), img = el("img");
@@ -1317,7 +1404,8 @@ img.baked { filter: none !important; }
         who.setAttribute("data-pinch", "");
         const started = startPinch(img, e, cheeksOf(c.name), cheekR(c.name), who, (pulled) => {
           who.removeAttribute("data-pinch");
-          if (pulled) { who.removeAttribute("data-squish"); void who.offsetWidth; who.setAttribute("data-squish", ""); talk(who, pinchFor(c.name), 2600); }
+          who.removeAttribute("data-squish"); void who.offsetWidth; who.setAttribute("data-squish", "");
+          talk(who, pulled ? pinchFor(c.name) : pick(linesFor(c.name)), 2600);
         });
         if (started) who.setAttribute("data-pinched", ""); else who.removeAttribute("data-pinch");
         return;
@@ -1328,10 +1416,12 @@ img.baked { filter: none !important; }
       who.setPointerCapture(e.pointerId);
       const move = (ev) => {
         const x = Math.min(98, Math.max(2, ((ev.clientX - box.left) / box.width) * 100));
-        const y = Math.min(108, Math.max(15, ((ev.clientY - box.top) / box.height) * 100 + 14 * c.s));
+        const y = Math.min(110, Math.max(55, ((ev.clientY - box.top) / box.height) * 100 + 27 * Number(depthScale(c))));
         who.style.left = x + "%";
         who.style.top = y + "%";
         c.x = x; c.y = y;
+        who.style.setProperty("--s", depthScale(c));
+        who.style.zIndex = String(Math.round(y * 10));
       };
       const up = () => {
         who.removeEventListener("pointermove", move);
