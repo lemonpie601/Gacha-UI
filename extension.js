@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.36 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.37 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -2158,8 +2158,19 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
   const sdEntry = (name) => { const w = world(); return (w && name && w.sd[name]) || {}; };
   const linesFor = (name) => { const l = sdEntry(name).lines; return Array.isArray(l) && l.filter(Boolean).length ? l.filter(Boolean) : LOBBY_LINES; };
   const pinchFor = (name) => sdEntry(name).pinch || pick(PINCH_LINES);
-  const cheeksOf = (name) => { const c = sdEntry(name).cheeks; return Array.isArray(c) && c.length ? c : null; };
-  const cheekR = (name) => { const r = Number(sdEntry(name).cheekR); return r > 0 ? r : 0.04; };
+  const lookOf = (name, look) => (look ? sdVariant(sdEntry(name), look) || {} : sdEntry(name));
+  const cheeksOf = (name, look = "") => {
+    const own = lookOf(name, look).cheeks, base = sdEntry(name).cheeks;
+    const c = Array.isArray(own) && own.length ? own : base;
+    return Array.isArray(c) && c.length ? c : null;
+  };
+  const cheekR = (name, look = "") => { const r = Number(lookOf(name, look).cheekR) || Number(sdEntry(name).cheekR); return r > 0 ? r : 0.04; };
+  // Edits for one look of a character: the base entry, or that outfit inside variants.
+  function saveLook(name, look, patch) {
+    if (!look) return saveSdEntry(name, patch);
+    const e = sdEntry(name);
+    return saveSdEntry(name, { variants: { ...(e.variants || {}), [look]: { ...(sdVariant(e, look) || {}), ...patch } } });
+  }
   async function saveSdEntry(name, patch) {
     const w = world();
     if (!w) return;
@@ -2630,7 +2641,8 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       if (!lobbyEdit) {
         // A press on a cheek pulls it; let go and it snaps back with a word from them.
         who.setAttribute("data-pinch", "");
-        const started = startPinch(img, e, cheeksOf(c.name), cheekR(c.name), who, (pulled) => {
+        const look = sdEntry(c.name).lobby || "";
+        const started = startPinch(img, e, cheeksOf(c.name, look), cheekR(c.name, look), who, (pulled) => {
           who.removeAttribute("data-pinch");
           who.removeAttribute("data-squish"); void who.offsetWidth; who.setAttribute("data-squish", "");
           talk(who, pulled ? pinchFor(c.name) : pick(linesFor(c.name)), 2600);
@@ -3213,7 +3225,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
         const chips = el("div", "st-chips");
         chips.append(chip(url ? "다시" : "그리기", () => makeSd(c)));
         if (url) chips.append(chip("지우기", () => removeSd(c.name)));
-        chips.append(chip("편집", () => { sdEditing = sdEditing === c.name ? "" : c.name; sdEditKey = ""; paintSettings(); }, { "aria-pressed": String(sdEditing === c.name) }));
+        chips.append(chip("편집", () => { sdEditing = sdEditing === c.name ? "" : c.name; sdEditKey = ""; sdEditLook = ""; paintSettings(); }, { "aria-pressed": String(sdEditing === c.name) }));
         // Stands with the protagonist in the story line-up (the left group) instead of across from them.
         if (c.name !== protagonistName()) chips.append(chip("주인공 옆", async () => { await saveSdEntry(c.name, { ally: !w.sd[c.name]?.ally }); paintSettings(); refresh(); }, { "aria-pressed": String(!!w.sd[c.name]?.ally), title: "스토리에서 주인공 쪽에 살짝 겹쳐 섭니다" }));
         const title = el("b", "", c.name);
@@ -3227,14 +3239,19 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
 
   /* ── One character's editor: cheek points on the sprite, its three lines and its pinch reaction ── */
   // linesRev moves when the AI rewrites lines, so the editor shows them; typing never rebuilds it.
-  let sdEditing = "", sdEditKey = "", linesRev = 0;
+  let sdEditing = "", sdEditKey = "", sdEditLook = "", linesRev = 0;
   function paintSdEditor(root) {
     const w = world();
     const c = w && w.cards.find((x) => x.name === sdEditing);
     for (const box of root.querySelectorAll("[data-gfx-sd-edit]")) {
       const e = c ? sdEntry(c.name) : {};
       if (c) loadUnitDetails(c, w);
-      const key = c ? [c.name, e.url || "", JSON.stringify(e.variants || {}), JSON.stringify(e.history || []), e.lobby || "", Array.from(w.outfits.get(c.name) || []).join(","), JSON.stringify(e.cheeks || []), cheekR(c.name), faceOf(c.name), e.tall || 1, linesRev].join("|") : "";
+      const allOutfits = c ? Array.from(w.outfits.get(c.name) || []) : [];
+      const madeLooks = allOutfits.filter((k) => sdVariant(e, k)?.url);
+      const look = madeLooks.includes(sdEditLook) ? sdEditLook : "";
+      const lookUrl = look ? sdVariant(e, look).url : e.url;
+      const lookName = (k) => w.details.get(c.name)?.outfits?.find((o) => pathOf(o.url) === k)?.name || "의상 " + (allOutfits.indexOf(k) + 1);
+      const key = c ? [c.name, look, e.url || "", JSON.stringify(e.variants || {}), JSON.stringify(e.history || []), e.lobby || "", Array.from(w.outfits.get(c.name) || []).join(","), JSON.stringify(e.cheeks || []), cheekR(c.name), faceOf(c.name), e.tall || 1, linesRev].join("|") : "";
       if (box.getAttribute("data-key") === key) continue;
       box._gfxMarkerRO?.disconnect();
       box._gfxMarkerRO = null;
@@ -3245,17 +3262,17 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       const pad = el("div", "gfx-cheek-pad");
       const side = el("div", "gfx-sd-edit-side");
       box.append(pad, side);
-      if (e.url) {
+      if (lookUrl) {
         const img = el("img");
-        img.src = e.url;
+        img.src = lookUrl;
         img.alt = c.name;
         img.draggable = false;
         pad.append(img);
         const marks = () => {
           for (const m of pad.querySelectorAll(".mark")) m.remove();
-          for (const p of cheeksOf(c.name) || []) {
+          for (const p of cheeksOf(c.name, look) || []) {
             const m = el("i", "mark");
-            m.style.cssText = "left:" + (img.offsetLeft + p.x * img.offsetWidth) + "px;top:" + (img.offsetTop + p.y * img.offsetHeight) + "px;width:" + cheekR(c.name) * 2 * img.offsetWidth + "px";
+            m.style.cssText = "left:" + (img.offsetLeft + p.x * img.offsetWidth) + "px;top:" + (img.offsetTop + p.y * img.offsetHeight) + "px;width:" + cheekR(c.name, look) * 2 * img.offsetWidth + "px";
             pad.append(m);
           }
         };
@@ -3266,7 +3283,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
         let pinched = false;
         on(pad, "pointerdown", (ev) => {
           ev.stopPropagation();
-          pinched = startPinch(img, ev, cheeksOf(c.name), cheekR(c.name), pad, (pulled) => { if (pulled) setEditNote(pinchFor(c.name)); }, false);
+          pinched = startPinch(img, ev, cheeksOf(c.name, look), cheekR(c.name, look), pad, (pulled) => { if (pulled) setEditNote(pinchFor(c.name)); }, false);
         });
         on(pad, "click", (ev) => {
           ev.stopPropagation();
@@ -3274,24 +3291,35 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
           const r = img.getBoundingClientRect();
           const p = { x: +((ev.clientX - r.left) / r.width).toFixed(3), y: +((ev.clientY - r.top) / r.height).toFixed(3) };
           if (p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) return;
-          const now = (cheeksOf(c.name) || []).slice();
+          const now = (cheeksOf(c.name, look) || []).slice();
           // Two cheeks at most: a third tap moves the nearer one.
           if (now.length >= 2) now.splice(now.findIndex((q, i, a) => Math.hypot(q.x - p.x, q.y - p.y) === Math.min(...a.map((z) => Math.hypot(z.x - p.x, z.y - p.y)))), 1, p);
           else now.push(p);
-          saveSdEntry(c.name, { cheeks: now });
+          saveLook(c.name, look, { cheeks: now });
           sdEditKey = "";
           paintSettings();
         });
       } else pad.append(el("p", "hint", "먼저 SD를 그려 주세요."));
       side.append(el("b", "", c.name));
+      // Which look the picture and the cheek points are for: the base SD or one of the drawn outfits.
+      if (madeLooks.length) {
+        side.append(hint("편집할 모습", ""));
+        const looks = el("div", "st-chips");
+        for (const k of ["", ...madeLooks]) {
+          const b = chip(k ? lookName(k) : "기본", () => { sdEditLook = k; paintSettings(); });
+          b.setAttribute("aria-pressed", String(look === k));
+          looks.append(b);
+        }
+        side.append(looks);
+      }
       side.append(hint("그림에서 볼을 누르면 볼 위치(최대 2곳)가 정해집니다. 정한 곳을 누른 채 끌면 미리 당겨 볼 수 있습니다.", ""));
       const size = el("div", "st-chips");
       for (const [r, label] of [[0.025, "볼 작게"], [0.04, "보통"], [0.055, "볼 크게"]]) {
-        const b = chip(label, () => { saveSdEntry(c.name, { cheekR: r }); sdEditKey = ""; paintSettings(); });
-        b.setAttribute("aria-pressed", String(Math.abs(cheekR(c.name) - r) < 0.001));
+        const b = chip(label, () => { saveLook(c.name, look, { cheekR: r }); sdEditKey = ""; paintSettings(); });
+        b.setAttribute("aria-pressed", String(Math.abs(cheekR(c.name, look) - r) < 0.001));
         size.append(b);
       }
-      size.append(chip("볼 지우기", () => saveSdEntry(c.name, { cheeks: [] }).then(() => paintSettings())));
+      size.append(chip("볼 지우기", () => saveLook(c.name, look, { cheeks: [] }).then(() => paintSettings())));
       side.append(size);
       side.append(hint("그림 속 캐릭터가 바라보는 쪽", ""));
       const face = el("div", "st-chips");
