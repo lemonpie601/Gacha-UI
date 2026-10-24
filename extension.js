@@ -2941,7 +2941,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       }
       size.append(chip("볼 지우기", () => saveSdEntry(c.name, { cheeks: [] }).then(() => paintSettings())));
       side.append(size);
-      side.append(hint("그림 속 캐릭터가 바라보는 쪽 — 로비에서 걷는 방향, 스토리·전투에서 서로 마주 보는 방향이 이것을 따릅니다.", ""));
+      side.append(hint("그림 속 캐릭터가 바라보는 쪽", ""));
       const face = el("div", "st-chips");
       for (const [f, label] of [["left", "← 왼쪽을 봄"], ["front", "정면"], ["right", "오른쪽을 봄 →"]]) {
         const b = chip(label, () => saveSdEntry(c.name, { face: f }).then(() => { paintSettings(); refresh(); }));
@@ -2949,7 +2949,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
         face.append(b);
       }
       side.append(face);
-      side.append(hint("키 — 그림마다 캐릭터가 그림 높이를 가득 채워서, 어린 캐릭터는 여기서 작게 하면 다른 캐릭터와 비율이 맞습니다.", ""));
+      side.append(hint("키", ""));
       const tall = el("div", "st-chips");
       for (const [t, label] of [[0.8, "작게"], [0.9, "조금 작게"], [1, "보통"], [1.15, "크게"]]) {
         const b = chip(label, () => saveSdEntry(c.name, { tall: t }).then(() => { paintSettings(); refreshSprites(); }));
@@ -2959,7 +2959,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       side.append(tall);
       const outfits = Array.from(w.outfits.get(c.name) || []);
       if (outfits.length) {
-        side.append(hint("의상별 SD — 스토리에서 발견한 다른 의상입니다. 의상마다 따로 만들면 해당 초상이 나올 때 자동으로 바뀝니다.", ""));
+        side.append(hint("의상별 SD", ""));
         const variants = el("div", "st-chips");
         outfits.forEach((variantKey, i) => {
           const exists = !!e.variants?.[variantKey];
