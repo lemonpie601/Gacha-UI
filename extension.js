@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.27 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.28 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -956,7 +956,7 @@ img.baked { filter: none !important; }
 /* Roster cards: the picture gives way so the name and role below always fit (the rounder font is taller
  * and the bottom line was cut off). */
 ${T} button.u { overflow: hidden; }
-${T} button.u > .u-art { aspect-ratio: auto !important; flex: 1 1 0 !important; min-height: 0 !important; }
+${T} button.u > .u-art { flex: 1 1 auto !important; min-height: 0 !important; }
 ${T} button.u > .u-meta { flex: none !important; padding-bottom: .35em !important; line-height: 1.3; }
 /* Formation slots: the name strip was dim text on a near-black fade; a cream plate instead. */
 ${T} .slot .slot-meta { background: linear-gradient(0deg, color-mix(in srgb, var(--gfx-card) 96%, transparent) 60%, color-mix(in srgb, var(--gfx-card) 0%, transparent)) !important; padding-bottom: .3em !important; }
