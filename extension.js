@@ -1,0 +1,1597 @@
+/* Gacha UI Style v1.2.0 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+ * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
+ *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
+ *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
+ *  - story: an opaque rounded dialogue box, portraits framed as stickers, SD (chibi) standing sprites,
+ *  - battle: SD sprites standing on the unit cards, hopping when they act and squashing when hit,
+ *  - a loading screen in the Trickcal Revive manner (bouncing SD, tip bubble, a capsule bar an SD runs along),
+ *  - an "SD 캐릭터 만들기" panel that draws transparent-background chibis of the world's characters through
+ *    the engine's own image connections and keeps them in the gallery.
+ * The game draws every screen from theme tokens on .gf-arena, so the look is an adopted stylesheet keyed on
+ * attributes of the game's host element: it survives the game rewriting its shadow root on every render and
+ * never touches the world's saved HUD style. Picking any of the game's styles turns it off again.
+ * Kept: on/off per browser (localStorage); colours, options and SD sprites in this extension's server storage,
+ * so every device sees the same. */
+(() => {
+  "use strict";
+  const KEY = "__GF_UI_STYLE_EXTENSION";
+  if (typeof window[KEY] === "function") {
+    try { window[KEY](); } catch {}
+  }
+
+  const HOST_TAG = "marinara-capability-gacha-forge";
+  const ATTR = "data-gfx-style";
+  const STORE = "gfx-ui-style";
+  const CACHE = "gfx-ui-style-cache";
+  // Given by Marinara's full-page wrapper; without it (pasted by hand) server storage is skipped.
+  const EXT_ID = typeof extension !== "undefined" && extension && extension.id ? String(extension.id) : "";
+  const FONT_FAMILIES = ["Jua", "Gowun Dodum"];
+  const STYLES = [["trickcal", "말랑", "트릭컬풍 · 색은 직접 고르기"]];
+
+  /* ═════════════ Settings model ═════════════ */
+  const COLOR_FIELDS = [
+    ["ink", "바탕"], ["card", "카드"], ["text", "글자"], ["line", "외곽선"],
+    ["accent", "강조 버튼"], ["pick", "선택 표시"], ["sky1", "배경 1"], ["sky2", "배경 2"],
+  ];
+  const PRESETS = [
+    ["cream", "크림 코코아", { ink: "#FFF4D9", card: "#FFFDF5", text: "#5A3A24", line: "#6B4528", accent: "#F0763A", pick: "#FFE17A", sky1: "#FFE08A", sky2: "#BDE9DA" }],
+    ["berry", "딸기 우유", { ink: "#FFEFF3", card: "#FFFBFC", text: "#6A2E45", line: "#7A3550", accent: "#F2557F", pick: "#FFD3E0", sky1: "#FFC9DA", sky2: "#FFF1C9" }],
+    ["mint", "민트 초코", { ink: "#EAF8F1", card: "#FBFFFD", text: "#2F4A3E", line: "#3B5A4B", accent: "#2FA97C", pick: "#C4F2DC", sky1: "#BDEFD9", sky2: "#FFE9B8" }],
+    ["lavender", "라벤더", { ink: "#F2EEFF", card: "#FDFCFF", text: "#45386E", line: "#4F3F85", accent: "#8C6CF0", pick: "#E1D6FF", sky1: "#D9CCFF", sky2: "#CDEBFF" }],
+    ["night", "밤하늘", { ink: "#2B2F4A", card: "#383D60", text: "#FFF1D6", line: "#14162A", accent: "#FFB347", pick: "#FFD166", sky1: "#3B3F6B", sky2: "#5B3F6E" }],
+  ];
+  const DEFAULT_COLORS = PRESETS[0][2];
+  const OPTION_FIELDS = [
+    ["box", "불투명 대화창", "스토리 대화창을 둥근 크림 상자로 바꿉니다. 끄면 대화창은 원래(다른 확장의 투명도 포함)대로입니다."],
+    ["sticker", "스티커 초상", "스토리 초상화에 흰 테두리와 외곽선을 둘러 스티커처럼 보이게 합니다."],
+    ["motion", "말랑 움직임", "초상과 SD 캐릭터가 숨 쉬듯 움직이고, 등장할 때 통 튀어나옵니다."],
+    ["storySd", "스토리에 SD", "SD 캐릭터를 만든 인물은 스토리에서 초상 대신 SD 스탠딩으로 나옵니다."],
+    ["battleSd", "전투에 SD", "SD 캐릭터를 만든 인물은 전투 카드 위에 SD로 서 있습니다."],
+    ["loading", "로딩 화면", "불러오는 동안 SD 캐릭터와 팁이 나오는 로딩 화면을 띄웁니다."],
+  ];
+  // Whole-screen makeovers in the Trickcal Revive manner, each its own switch.
+  const SCREEN_FIELDS = [
+    ["field", "전투 필드", "카드 대신 아군은 왼쪽, 적은 오른쪽 땅 위에 서서 싸웁니다. 행동 버튼은 아래 한 줄로 모입니다. 끄면 원래 카드 전투입니다."],
+    ["team", "편성 · 출격 캐릭터", "편성 칸과 전투 시작 화면에 팀 캐릭터가 둥실 떠 있습니다."],
+    ["lobby", "홈 로비", "홈 배경 위에 캐릭터들이 서서 돌아다닙니다. 누르면 말을 겁니다. 아래 목록에서 누구를 둘지 고르고, 홈의 [배치] 버튼으로 옮깁니다."],
+    ["hidePlate", "홈 대표 카드 숨기기", "홈 왼쪽의 대표 캐릭터 카드를 숨겨 로비를 넓게 씁니다."],
+    ["attend", "출석 이벤트", "7일 출석판을 도장 찍는 출석부로 바꾸고, 캐릭터가 옆에서 반겨 줍니다."],
+  ];
+  const DEFAULT_OPTS = { box: true, sticker: true, motion: true, storySd: true, battleSd: true, loading: true,
+    field: true, team: true, lobby: true, hidePlate: true, attend: true };
+  const LOBBY_LINES = ["반가워!", "오늘도 힘내자~", "말랑말랑…", "간식 없어?", "같이 모험 가자!", "쿨쿨…", "볼 꼬집지 마!", "어디 가?", "히히, 들켰다!", "출석 도장 찍었어?"];
+  const DEFAULT_GEN = {
+    connectionId: "",
+    template: "5::chibi, chibi only::, solo, Transparent background, full body, standing, looking at viewer, {appearance}",
+    negative: "multiple views, text, watermark, scenery, background",
+    size: "832x1216",
+  };
+  const SIZES = [["832x1216", "세로 832×1216"], ["1024x1024", "정사각 1024"]];
+  const TIPS = [
+    "스토리 “다시 읽기”는 활력을 쓰지 않아요.",
+    "설정 → 화면에서 말랑 스타일의 색을 마음대로 바꿀 수 있어요.",
+    "SD 캐릭터는 설정 → 화면 → SD 캐릭터 만들기에서 뽑을 수 있어요.",
+    "로딩 중인 캐릭터를 눌러 보세요. 말랑해요.",
+    "편성할 때 속성 상성을 맞추면 전투가 훨씬 쉬워져요.",
+    "활력은 시간이 지나면 다시 차올라요.",
+    "대화 기록 버튼으로 지나간 대사를 다시 볼 수 있어요.",
+    "투명 배경 SD는 스토리와 전투에서 스티커처럼 서 있어요.",
+  ];
+
+  const life = new AbortController();
+  const on = (target, type, fn, opts = {}) => target.addEventListener(type, fn, { ...opts, signal: life.signal });
+  let disposed = false;
+
+  function readStyle() {
+    try { const v = localStorage.getItem(STORE); return STYLES.some(([id]) => id === v) ? v : ""; }
+    catch { return ""; }
+  }
+  function writeStyle(v) {
+    try { if (v) localStorage.setItem(STORE, v); else localStorage.removeItem(STORE); } catch {}
+  }
+  let current = readStyle();
+
+  // prefs: { colors, preset, opts, gen } — mirrored in localStorage so the first paint already has them.
+  const cleanColor = (v, d) => (typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v.toUpperCase() : d);
+  function normalizePrefs(p) {
+    p = p && typeof p === "object" ? p : {};
+    const colors = {};
+    for (const [k] of COLOR_FIELDS) colors[k] = cleanColor(p.colors && p.colors[k], DEFAULT_COLORS[k]);
+    const opts = {};
+    for (const [k] of [...OPTION_FIELDS, ...SCREEN_FIELDS]) opts[k] = p.opts && typeof p.opts[k] === "boolean" ? p.opts[k] : DEFAULT_OPTS[k];
+    // home: { runId: { name: { on, x, y, s } } } — x/y are the feet in % of the home screen, s a scale.
+    const home = {};
+    const num = (v, lo, hi, d) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
+    for (const [run, cast] of Object.entries(p.home && typeof p.home === "object" ? p.home : {})) {
+      if (!cast || typeof cast !== "object") continue;
+      home[run] = {};
+      for (const [name, e] of Object.entries(cast)) {
+        if (!e || typeof e !== "object") continue;
+        home[run][name] = { on: e.on !== false, x: num(e.x, 0, 100, NaN), y: num(e.y, 0, 100, NaN), s: num(e.s, 0.4, 2.5, 1) };
+      }
+    }
+    const g = p.gen && typeof p.gen === "object" ? p.gen : {};
+    const gen = {
+      connectionId: typeof g.connectionId === "string" ? g.connectionId : "",
+      template: typeof g.template === "string" && g.template.trim() ? g.template : DEFAULT_GEN.template,
+      negative: typeof g.negative === "string" ? g.negative : DEFAULT_GEN.negative,
+      size: SIZES.some(([s]) => s === g.size) ? g.size : DEFAULT_GEN.size,
+    };
+    return { colors, preset: typeof p.preset === "string" ? p.preset : "", opts, gen, home };
+  }
+  let prefs = normalizePrefs((() => { try { return JSON.parse(localStorage.getItem(CACHE) || "null"); } catch { return null; } })());
+
+  /* ═════════════ Server storage (this extension's own) ═════════════ */
+  const storeUrl = EXT_ID ? "/api/personal-extensions/" + encodeURIComponent(EXT_ID) + "/storage" : "";
+  async function storeGet() {
+    if (!storeUrl) return {};
+    try {
+      const res = await fetch(storeUrl, { credentials: "same-origin" });
+      const data = res.ok ? await res.json() : null;
+      return data && data.value && typeof data.value === "object" ? data.value : {};
+    } catch { return {}; }
+  }
+  async function storePatch(patch) {
+    if (!storeUrl) return false;
+    try {
+      const res = await fetch(storeUrl, { method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+      return res.ok;
+    } catch { return false; }
+  }
+  let saveTimer = 0;
+  function savePrefs() {
+    try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {}
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => storePatch({ prefs }), 500);
+  }
+
+  /* ═════════════ The style ═════════════
+   * :host([data-gfx-style=…]) .gf-arena is (0,3,0), above the game's .gf-arena[data-style=…] (0,2,0) whatever the
+   * base style is, so every token of the base is replaced, not mixed. Options are further host attributes. */
+  const H = (extra = "") => ':host([' + ATTR + '="trickcal"]' + extra + ")";
+  const T = H();
+  const LB = H("[data-gfx-lobby]"), F = H("[data-gfx-field]"), TM = H("[data-gfx-team]"), HP = H("[data-gfx-hideplate]"), AT = H("[data-gfx-attend]");
+  const HALO = "0 0 2px var(--gfx-card), 0 0 5px color-mix(in srgb, var(--gfx-card) 95%, transparent), 0 0 12px color-mix(in srgb, var(--gfx-card) 70%, transparent)";
+  const STICKER = "drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff) drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff) drop-shadow(0 0.25em 0 color-mix(in srgb, var(--gfx-line) 55%, transparent))";
+  const CSS = `
+${T} .gf-arena {
+  --gfx-ink: ${DEFAULT_COLORS.ink}; --gfx-card: ${DEFAULT_COLORS.card}; --gfx-text: ${DEFAULT_COLORS.text};
+  --gfx-line: ${DEFAULT_COLORS.line}; --gfx-accent: ${DEFAULT_COLORS.accent}; --gfx-pick: ${DEFAULT_COLORS.pick};
+  --gfx-sky1: ${DEFAULT_COLORS.sky1}; --gfx-sky2: ${DEFAULT_COLORS.sky2};
+
+  --scanlines: 0;
+  --text: var(--gfx-text);
+  --surface: var(--gfx-card);
+  --on-surface: var(--gfx-text);
+  --on-coral: #FFFFFF;
+  --ink: var(--gfx-ink);
+  --ink-2: color-mix(in srgb, var(--gfx-ink) 80%, var(--gfx-pick));
+  --ink-3: color-mix(in srgb, var(--gfx-ink) 72%, var(--gfx-line));
+  --porcelain-2: color-mix(in srgb, var(--gfx-card) 70%, var(--gfx-ink));
+  /* Mostly a text and icon colour in the game (light on the dark styles), so here it follows the text. */
+  --porcelain-3: color-mix(in srgb, var(--gfx-text) 78%, var(--gfx-ink));
+  --steel: color-mix(in srgb, var(--gfx-line) 62%, var(--gfx-ink));
+  --steel-dark: color-mix(in srgb, var(--gfx-line) 85%, var(--gfx-ink));
+  --steel-faint: color-mix(in srgb, var(--gfx-text) 68%, var(--gfx-ink));
+  --coral: var(--gfx-accent);
+  --coral-deep: color-mix(in srgb, var(--gfx-accent) 78%, #000);
+  --amber: #F2A900; --amber-deep: #C98500;
+  --epic: #A274E0; --epic-deep: #7A4FC2;
+  --jade: #3DA95A; --alarm: #EE4A5D;
+  --af-fire: #F2603C; --af-water: #3E9BE8; --af-wind: #3DA95A;
+  --af-earth: #C98A2B; --af-light: #F2B600; --af-dark: #9B6FD4;
+  --fire: #F2603C; --water: #3E9BE8; --wind: #3DA95A;
+  --earth: #D99A1E; --light: #E8A800; --dark: #9B6FD4;
+  --glow-1: var(--gfx-sky1);
+  --glow-2: var(--gfx-sky2);
+  --ground-1: color-mix(in srgb, var(--gfx-sky1) 45%, var(--gfx-ink));
+  --ground-2: color-mix(in srgb, var(--gfx-sky2) 55%, var(--gfx-ink));
+
+  --clip-card: none; --clip-chip: none; --clip-btn: none;
+  --plate-clip-right: none; --plate-clip-left: none;
+  --emblem-cut: none; --emblem-round: block;
+  --pip-rotate: 0deg; --pip-radius: 50%;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --panel-blur: none;
+  --panel-shadow: 0 0.32em 0 -0.04em color-mix(in srgb, var(--gfx-line) 32%, transparent);
+  --panel-bevel: inset 0 -0.2em 0 color-mix(in srgb, var(--gfx-line) 10%, transparent);
+
+  --body: "Gowun Dodum", "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
+  --display: "Jua", "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
+  --title: "Jua", "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
+  --title-weight: 400;
+  --case: none;
+  --stretch: normal;
+  --track: 0;
+
+  --gfx-dots: radial-gradient(color-mix(in srgb, #fff 55%, transparent) 18%, transparent 19%) 0 0 / 2.2em 2.2em,
+              radial-gradient(color-mix(in srgb, #fff 35%, transparent) 18%, transparent 19%) 1.1em 1.1em / 2.2em 2.2em;
+}
+
+/* Ground: the game's own gradient underneath, polka dots on top. */
+${T} .gf-stage, ${T} .hm-ground {
+  background-image: var(--gfx-dots), linear-gradient(160deg, var(--glow-1), var(--ground-1) 45%, var(--glow-2)) !important;
+}
+
+/* Chunky outlined pieces: buttons press down onto a hard outline-coloured shadow. */
+${T} .currency, ${T} .icon-button, ${T} .hm-chat, ${T} .hm-side, ${T} .hm-slot, ${T} .sv-q,
+${T} .st-sect, ${T} .st-chip, ${T} .back, ${T} .act, ${T} .diff-pill, ${T} .btn {
+  border: 2px solid var(--gfx-line) !important;
+  box-shadow: 0 0.22em 0 var(--gfx-line) !important;
+}
+${T} .hm-tile, ${T} .hm-cta, ${T} .st-plate, ${T} .st-sty, ${T} .ev-panel {
+  border: 2.5px solid var(--gfx-line) !important;
+  box-shadow: 0 0.3em 0 var(--gfx-line), inset 0 -0.25em 0 color-mix(in srgb, var(--gfx-line) 10%, transparent) !important;
+}
+${T} .act { border-radius: 999px !important; }
+/* The big start buttons: Trickcal's yellow "전투시작!" slab. */
+${T} .fstart, ${T} [data-into-battle], ${T} .btn-go {
+  background: linear-gradient(180deg, #FFDC5E, #FFB81C) !important; color: #3B2610 !important; text-shadow: 0 0.06em 0 #FFF0B0 !important;
+  border: 3px solid #3B2610 !important; border-radius: 14px !important; clip-path: none !important;
+  box-shadow: 0 0.28em 0 #8A5A00, inset 0 -0.25em 0 rgba(170, 110, 0, 0.35), inset 0 0.2em 0 rgba(255, 255, 255, 0.55) !important;
+  font-family: var(--display) !important; }
+${T} .fstart b, ${T} [data-into-battle] small { color: #5A3A10 !important; opacity: 0.85; }
+${T} .gf-arena button { transition: transform 90ms ease, box-shadow 90ms ease, filter 120ms ease; }
+${T} .gf-arena button:hover:not(:disabled) { filter: brightness(1.04); }
+${T} .gf-arena button:active:not(:disabled) { transform: translateY(0.15em); }
+
+/* The top bar and translucent HUD pieces: opaque so the text never sits on raw art. */
+${T} .gf-bar { background: color-mix(in srgb, var(--gfx-ink) 85%, transparent) !important; border-bottom: 2.5px solid var(--gfx-line) !important; }
+${T} .currency, ${T} .icon-button, ${T} .hm-chat, ${T} .hm-side, ${T} .hm-slot { background: var(--gfx-card) !important; }
+
+/* Selected states: the "picked" sticker look. */
+${T} .st-sect[aria-selected="true"], ${T} .st-chip[aria-pressed="true"], ${T} .st-sty[aria-pressed="true"], ${T} .diff-pill[aria-pressed="true"] {
+  background: var(--gfx-pick) !important;
+  color: var(--gfx-line) !important;
+}
+${T} .st-plate > .hd h3 {
+  display: inline-block;
+  padding: 0.15em 0.9em;
+  border: 2px solid var(--gfx-line);
+  border-radius: 999px;
+  background: var(--gfx-pick);
+  color: var(--gfx-line);
+  box-shadow: 0 0.18em 0 var(--gfx-line);
+}
+
+/* Text over art: the game halos it in black, which on dark-on-light letters reads as a smudge. A card-coloured
+   halo instead, the sticker-outline look. These are the game's own rules that write a black text-shadow. */
+${T} :is(.sv-q, .sv-id, .sv-figs, .sv-bonus, .nw-id, .nw-figs, .cbt .hpn, .dmg, .dmg .eff, .abanner .big,
+  .bname .kicker, .bname h3, .bname p, .float .rates, .float .pity .fig, .float .pity .note,
+  .u-art > .u-stars, .u-art > .u-lvl, .u-art > .bond-pip) {
+  text-shadow: ${HALO} !important;
+}
+/* The summon banner: lighter veils so the art is not washed out, and a pastel ground behind no art. */
+${T} .show { background: radial-gradient(120% 90% at 70% 0%, var(--glow-1) 0%, var(--glow-2) 55%, var(--ground-2) 100%) !important; }
+${T} .show > .veil {
+  background: linear-gradient(0deg, color-mix(in srgb, var(--gfx-ink) 90%, transparent) 0%, color-mix(in srgb, var(--gfx-ink) 55%, transparent) 22%, transparent 45%),
+              linear-gradient(180deg, color-mix(in srgb, var(--gfx-ink) 70%, transparent) 0%, transparent 30%) !important;
+}
+
+/* Background-work badge: a cream pill with the mascot's bob. */
+${T} .gb-row { background: var(--gfx-card) !important; border: 2px solid var(--gfx-line) !important; border-radius: 999px !important;
+  box-shadow: 0 0.2em 0 var(--gfx-line) !important; color: var(--gfx-text) !important; }
+
+/* ── Story ─────────────────────────────────────────────────────────────────────────────────────── */
+${T} .vn-exit, ${T} .vn-tool {
+  background: var(--gfx-card) !important; color: var(--gfx-text) !important;
+  border: 2px solid var(--gfx-line) !important; border-radius: 999px !important; clip-path: none !important;
+  box-shadow: 0 0.18em 0 var(--gfx-line) !important;
+}
+${T} .vn-caption { background: color-mix(in srgb, var(--gfx-card) 88%, transparent); border: 2px solid var(--gfx-line);
+  border-radius: 14px; padding: 0.25em 0.8em; box-shadow: 0 0.18em 0 var(--gfx-line); }
+${T} .vn-who {
+  background: var(--gfx-accent) !important; color: #fff !important;
+  border: 2.5px solid var(--gfx-line) !important; border-radius: 999px !important; clip-path: none !important;
+  box-shadow: 0 0.2em 0 var(--gfx-line) !important;
+  text-shadow: 0 0.08em 0 color-mix(in srgb, var(--gfx-line) 60%, transparent);
+  transform: translate(0.8em, 0.55em) rotate(-2deg); position: relative; z-index: 4;
+}
+${T} .vn-who[data-narration] { background: var(--gfx-pick) !important; color: var(--gfx-line) !important; text-shadow: none; }
+${H("[data-gfx-box]")} .vn-box {
+  background: color-mix(in srgb, var(--gfx-card) 95%, transparent) !important;
+  border: 3px solid var(--gfx-line) !important; border-radius: 22px !important; clip-path: none !important;
+  box-shadow: 0 0.35em 0 var(--gfx-line), inset 0 0 0 0.28em color-mix(in srgb, var(--gfx-pick) 55%, transparent) !important;
+  backdrop-filter: none !important;
+}
+${H("[data-gfx-box]")} .vn-text { color: var(--gfx-text) !important; text-shadow: none !important; }
+${T} .vn-next { color: var(--gfx-accent) !important; }
+${T} .vn-continue { border: 2.5px solid var(--gfx-line) !important; border-radius: 999px !important; clip-path: none !important; box-shadow: 0 0.2em 0 var(--gfx-line) !important; }
+
+${H("[data-gfx-sticker]")} .vn-plate:not([data-gfx-sd]) {
+  --edge-w: 5px;
+  background: #fff !important; padding: 5px !important;
+  outline: 3px solid var(--gfx-line); outline-offset: -1px;
+  border-radius: 20px !important; clip-path: none !important;
+  box-shadow: 0 0.45em 0 var(--gfx-line) !important;
+}
+${H("[data-gfx-sticker]")} .vn-plate:not([data-gfx-sd]) .vn-art { inset: 5px !important; border-radius: 15px !important; clip-path: none !important; }
+${H("[data-gfx-sticker]")} .vn-plate:not([data-gfx-sd]) .vn-art::after { display: none; }
+${H("[data-gfx-sticker]")} .vn-plate[data-side="left"]:not([data-gfx-sd]) { rotate: -2deg; left: 1.2% !important; bottom: 0.6em !important; }
+${H("[data-gfx-sticker]")} .vn-plate[data-side="right"]:not([data-gfx-sd]) { rotate: 2deg; right: 1.2% !important; bottom: 0.6em !important; }
+
+/* SD standing: the plate's frame goes and the transparent sprite stands on the box, outlined like a sticker. */
+${T} .vn-plate[data-gfx-sd] { background: transparent !important; box-shadow: none !important; clip-path: none !important; overflow: visible !important; }
+${T} .vn-plate[data-gfx-sd] .vn-art { opacity: 0 !important; }
+${T} .vn-plate[data-gfx-sd] > img.gfx-sd {
+  position: absolute; left: 50%; bottom: -0.4em; height: 104%; width: auto; max-width: 150%;
+  translate: -50% 0; object-fit: contain; object-position: 50% 100%;
+  filter: ${STICKER}; transform-origin: 50% 100%; pointer-events: none;
+}
+${T} .vn-plate[data-gfx-sd][data-side="left"] > img.gfx-sd { scale: -1 1; }
+
+/* ── Battle ────────────────────────────────────────────────────────────────────────────────────── */
+${T} .cbt .ava { border: 2.5px solid var(--gfx-line) !important; border-radius: 16px !important; clip-path: none !important;
+  background: linear-gradient(170deg, var(--gfx-sky1), var(--gfx-sky2)) !important; }
+/* The card's foot is a hardcoded near-black fade under the name and bars: a card-coloured one here. */
+${T} .cbt::after { background: linear-gradient(0deg, color-mix(in srgb, var(--gfx-card) 96%, transparent) 14%, color-mix(in srgb, var(--gfx-card) 60%, transparent) 52%, transparent 100%) !important;
+  border-radius: 0 0 16px 16px; }
+${T} .cbt .nm { color: var(--gfx-text) !important; text-shadow: ${HALO} !important; }
+${T} .cbt[data-gfx-sd] .ava { background: radial-gradient(90% 70% at 50% 85%, var(--gfx-pick), var(--gfx-sky2) 70%, var(--gfx-sky1)) !important; }
+${T} .cbt[data-gfx-sd] .ava-photo { opacity: 0 !important; }
+${T} .cbt[data-gfx-sd] > img.gfx-sd {
+  position: absolute; left: -6%; right: -6%; bottom: 16%; height: 96%; width: 112%; z-index: 2;
+  object-fit: contain; object-position: 50% 100%; filter: ${STICKER}; transform-origin: 50% 100%; pointer-events: none;
+}
+${T} .cbt.enemy[data-gfx-sd] > img.gfx-sd { scale: -1 1; }
+
+/* ── Motion ────────────────────────────────────────────────────────────────────────────────────── */
+@keyframes gfx-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.015, 0.985); } }
+@keyframes gfx-bob { 0%, 100% { transform: translateY(0) scale(1, 1); } 45% { transform: translateY(-3%) scale(0.98, 1.03); } 60% { transform: translateY(0) scale(1.04, 0.95); } 75% { transform: scale(1, 1); } }
+@keyframes gfx-pop { 0% { transform: scale(0.6, 0.6); opacity: 0; } 55% { transform: scale(1.08, 0.94); opacity: 1; } 75% { transform: scale(0.96, 1.05); } 100% { transform: scale(1, 1); } }
+@keyframes gfx-hop { 0% { transform: translateY(0) scale(1.08, 0.9); } 35% { transform: translateY(-18%) scale(0.94, 1.08); } 70% { transform: translateY(0) scale(1.1, 0.88); } 100% { transform: translateY(0) scale(1, 1); } }
+@keyframes gfx-squash { 0%, 100% { transform: scale(1, 1); } 30% { transform: scale(1.18, 0.78) rotate(-4deg); } 60% { transform: scale(0.92, 1.08) rotate(3deg); } }
+${H("[data-gfx-motion]")} .vn-plate:not([data-gfx-sd]) .vn-art > img { transform-origin: 50% 100%; animation: gfx-breathe 3.4s ease-in-out infinite; }
+${H("[data-gfx-motion]")} .vn-plate[data-open="true"] { animation: gfx-pop 420ms cubic-bezier(.3,1.6,.5,1) both; transform-origin: 50% 100%; }
+${H("[data-gfx-motion]")} .vn-plate[data-gfx-sd] > img.gfx-sd { animation: gfx-bob 1.9s ease-in-out infinite; }
+${H("[data-gfx-motion]")} .cbt[data-gfx-sd] > img.gfx-sd { animation: gfx-bob 1.7s ease-in-out infinite; }
+${H("[data-gfx-motion]")} .cbt.acting[data-gfx-sd] > img.gfx-sd { animation: gfx-hop 520ms ease-out infinite; }
+${H("[data-gfx-motion]")} .cbt.hit[data-gfx-sd] > img.gfx-sd { animation: gfx-squash 320ms ease; }
+
+/* ── Loading screen ────────────────────────────────────────────────────────────────────────────── */
+.gfx-load {
+  position: absolute; inset: 0; z-index: 2147483000; overflow: hidden; pointer-events: auto;
+  font-family: "Jua", "Malgun Gothic", system-ui, sans-serif; color: var(--gfx-text, #5A3A24);
+  --gfx-ink: ${DEFAULT_COLORS.ink}; --gfx-card: ${DEFAULT_COLORS.card}; --gfx-text: ${DEFAULT_COLORS.text};
+  --gfx-line: ${DEFAULT_COLORS.line}; --gfx-accent: ${DEFAULT_COLORS.accent}; --gfx-pick: ${DEFAULT_COLORS.pick};
+  --gfx-sky1: ${DEFAULT_COLORS.sky1}; --gfx-sky2: ${DEFAULT_COLORS.sky2};
+  --u: 10px; /* set from the overlay's own size while it is up */
+  background:
+    radial-gradient(color-mix(in srgb, #fff 55%, transparent) 18%, transparent 19%) 0 0 / 2.4em 2.4em,
+    radial-gradient(color-mix(in srgb, #fff 35%, transparent) 18%, transparent 19%) 1.2em 1.2em / 2.4em 2.4em,
+    linear-gradient(160deg, var(--gfx-sky1), color-mix(in srgb, var(--gfx-sky1) 45%, var(--gfx-ink)) 45%, var(--gfx-sky2));
+  animation: gfx-load-in 220ms ease both;
+}
+.gfx-load[data-out] { animation: gfx-load-out 260ms ease both; pointer-events: none; }
+@keyframes gfx-load-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gfx-load-out { to { opacity: 0; transform: scale(1.03); } }
+.gfx-load-title {
+  position: absolute; left: 4%; top: 6%; display: flex; align-items: baseline; gap: 0.05em;
+  padding: 0.25em 1em 0.3em; font-size: calc(var(--u) * 3.4); color: #fff; background: var(--gfx-accent);
+  border: 3px solid var(--gfx-line); border-radius: 999px; box-shadow: 0 0.14em 0 var(--gfx-line); rotate: -3deg;
+  text-shadow: 0 0.07em 0 color-mix(in srgb, var(--gfx-line) 60%, transparent);
+}
+.gfx-load-title i { font-style: normal; display: inline-block; animation: gfx-dot 1.1s ease-in-out infinite; }
+.gfx-load-title i:nth-child(2) { animation-delay: .15s; } .gfx-load-title i:nth-child(3) { animation-delay: .3s; }
+@keyframes gfx-dot { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-0.3em); } }
+.gfx-load-world { position: absolute; right: 4%; top: 7%; max-width: 42%; font-size: calc(var(--u) * 2.1); padding: 0.25em 0.9em;
+  color: var(--gfx-line); background: var(--gfx-card); border: 2.5px solid var(--gfx-line); border-radius: 999px; box-shadow: 0 0.14em 0 var(--gfx-line);
+  rotate: 2deg; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gfx-load-world:empty { display: none; }
+.gfx-load-stage { position: absolute; left: 50%; top: 47%; translate: -50% -50%; width: calc(var(--u) * 34); height: calc(var(--u) * 34);
+  display: grid; place-items: end center; cursor: pointer; }
+.gfx-load-stage::before { content: ""; position: absolute; inset: 6% 2% 10%; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, #fff 80%, transparent), transparent 68%); }
+.gfx-load-shadow { position: absolute; bottom: 3%; left: 50%; width: 46%; height: 7%; translate: -50% 0; border-radius: 50%;
+  background: color-mix(in srgb, var(--gfx-line) 28%, transparent); animation: gfx-shadow 0.9s ease-in-out infinite; }
+.gfx-load-hero { position: relative; height: 92%; width: 100%; display: grid; place-items: end center;
+  transform-origin: 50% 100%; animation: gfx-jump 0.9s cubic-bezier(.4,0,.6,1) infinite; }
+.gfx-load-hero > img { max-height: 100%; max-width: 100%; object-fit: contain; filter: ${STICKER}; -webkit-user-drag: none; user-select: none; }
+.gfx-load-hero > svg { width: 78%; height: auto; overflow: visible; }
+.gfx-load-stage[data-squish] .gfx-load-hero { animation: gfx-squash 380ms ease; }
+@keyframes gfx-jump { 0%, 100% { transform: translateY(0) scale(1.08, 0.92); } 15% { transform: translateY(0) scale(1, 1); }
+  50% { transform: translateY(-16%) scale(0.95, 1.06); } 85% { transform: translateY(0) scale(1, 1); } }
+@keyframes gfx-shadow { 0%, 100% { scale: 1.1 1; opacity: 1; } 50% { scale: 0.7 1; opacity: 0.6; } }
+.gfx-load-pop { position: absolute; top: 4%; right: 6%; font-size: calc(var(--u) * 2.6); color: var(--gfx-accent);
+  text-shadow: 0 0 3px #fff, 0 0 6px #fff; animation: gfx-pop-text 600ms ease-out both; pointer-events: none; }
+@keyframes gfx-pop-text { from { opacity: 0; transform: translateY(30%) scale(0.6); } 40% { opacity: 1; transform: translateY(-20%) scale(1.15); } to { opacity: 0; transform: translateY(-80%) scale(1); } }
+.gfx-load-foot { position: absolute; left: 5%; right: 5%; bottom: 6%; display: flex; flex-direction: column; gap: calc(var(--u) * 6); }
+.gfx-load-tip { position: relative; display: flex; align-items: center; gap: 0.7em; padding: 0.55em 1.1em;
+  font-family: "Gowun Dodum", "Malgun Gothic", system-ui, sans-serif; font-size: calc(var(--u) * 2); line-height: 1.4;
+  background: var(--gfx-card); border: 3px solid var(--gfx-line); border-radius: 18px; box-shadow: 0 0.22em 0 var(--gfx-line); }
+.gfx-load-tip b { flex: none; font-family: "Jua", "Malgun Gothic", sans-serif; font-weight: 400; padding: 0.05em 0.6em;
+  background: var(--gfx-pick); color: var(--gfx-line); border: 2px solid var(--gfx-line); border-radius: 999px; }
+.gfx-load-tip span { animation: gfx-load-in 300ms ease both; }
+.gfx-load-bar { position: relative; height: calc(var(--u) * 2.6); background: var(--gfx-card); border: 3px solid var(--gfx-line);
+  border-radius: 999px; box-shadow: 0 0.2em 0 var(--gfx-line), inset 0 0.2em 0 color-mix(in srgb, var(--gfx-line) 12%, transparent); }
+.gfx-load-fill { position: absolute; left: 3px; top: 3px; bottom: 3px; width: 0; border-radius: 999px;
+  background: repeating-linear-gradient(-45deg, var(--gfx-accent) 0 0.7em, color-mix(in srgb, var(--gfx-accent) 78%, #fff) 0.7em 1.4em);
+  background-size: 200% 100%; animation: gfx-stripe 0.8s linear infinite; transition: width 180ms linear; }
+@keyframes gfx-stripe { to { background-position: -1.98em 0; } }
+.gfx-load-runner { position: absolute; bottom: 60%; width: calc(var(--u) * 5.5); height: calc(var(--u) * 5.5); translate: -50% 0;
+  transition: left 180ms linear; display: grid; place-items: end center; animation: gfx-run 0.35s ease-in-out infinite; }
+.gfx-load-runner > img { max-width: 100%; max-height: 100%; object-fit: contain; filter: ${STICKER}; }
+.gfx-load-runner > svg { width: 100%; height: auto; }
+@keyframes gfx-run { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-18%) rotate(4deg); } }
+.gfx-load-pct { position: absolute; right: 0.8em; top: 50%; translate: 0 -50%; font-size: calc(var(--u) * 1.6); color: var(--gfx-line); }
+/* The built-in mascot: a mochi with a sprout, drawn in the style's own colours. */
+.gfx-mochi .body { fill: var(--gfx-card); stroke: var(--gfx-line); stroke-width: 5; }
+.gfx-mochi .eye { fill: var(--gfx-line); }
+.gfx-mochi .shine { fill: #fff; }
+.gfx-mochi .blush { fill: #FF8FAB; opacity: 0.6; }
+.gfx-mochi .mouth, .gfx-mochi .stem { fill: none; stroke: var(--gfx-line); stroke-width: 4; stroke-linecap: round; }
+.gfx-mochi .leaf { fill: #7DD87D; stroke: var(--gfx-line); stroke-width: 3.5; }
+/* World creation ("forge") screen: the mascot instead of the spinning emblem. */
+${T} .forge-center .forge-emblem { display: none; }
+${T} .gfx-forge-mascot { width: calc(var(--f) * 12); height: calc(var(--f) * 12); display: grid; place-items: end center; }
+${T} .gfx-forge-mascot > * { max-width: 100%; max-height: 100%; transform-origin: 50% 100%; animation: gfx-jump 0.9s cubic-bezier(.4,0,.6,1) infinite; filter: ${STICKER}; }
+
+/* ── Battle field (Trickcal Revive manner) ────────────────────────────────────────────────────────
+   The game keeps its sides and rows; only where things stand changes. Sides and rows stop being boxes,
+   so every unit is placed on the arena itself: allies on the left, enemies on the right, three lanes of
+   depth, the front row nearer the middle. Clicks, targeting and turns are the game's own, untouched. */
+${F} .arena > .side { position: static !important; display: block !important; flex: none !important; padding: 0 !important; z-index: auto !important; }
+${F} .arena .row { display: contents !important; }
+${F} .arena > .midline { display: none !important; }
+${F} .arena .cbt {
+  position: absolute !important; margin: 0 !important; width: 9.6% !important; height: 30% !important;
+  --lane: 0; --extra: 0; top: calc(21% + var(--lane) * 14%); z-index: calc(10 + var(--lane));
+  transition: left 300ms ease, top 300ms ease, transform 200ms ease;
+}
+${F} .arena .row > .cbt:nth-child(3n+2) { --lane: 1; }
+${F} .arena .row > .cbt:nth-child(3n+3) { --lane: 2; }
+${F} .arena .row > .cbt:nth-child(n+4) { --extra: 1; }
+${F} .side.allies .row.back > .cbt { --col: 6%; }
+${F} .side.allies .row.front > .cbt, ${F} .side.allies.no-front .row.back > .cbt { --col: 25%; }
+${F} .side.allies .cbt { left: calc(var(--col) + (1 - var(--lane)) * 3.4% - var(--extra) * 11%); }
+${F} .side.enemies .row.front > .cbt, ${F} .side.enemies.no-front .row.back > .cbt { --col: 62%; }
+${F} .side.enemies .row.back > .cbt { --col: 78%; }
+${F} .side.enemies .cbt { left: calc(var(--col) - (1 - var(--lane)) * 2.6% + var(--extra) * 11%); }
+${F} .arena .cbt::before { display: none !important; }
+/* The ground under each unit, and a soft ground band across the field. */
+${F} .arena .cbt::after {
+  content: "" !important; top: auto !important; left: 12% !important; right: 12% !important; bottom: -3% !important; height: 9% !important;
+  border-radius: 50% !important; z-index: 0 !important;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--gfx-line) 38%, transparent), transparent) !important;
+}
+${F} .cb-shade { background: linear-gradient(0deg, color-mix(in srgb, var(--gfx-sky2) 55%, transparent) 0%, transparent 42%),
+  linear-gradient(180deg, color-mix(in srgb, var(--gfx-sky1) 35%, transparent) 0%, transparent 30%) !important; }
+/* A unit with an SD is just the sprite; one without is a small sticker card standing in its place. */
+${F} .arena .cbt .ava { inset: 16% 10% 4% !important; width: auto !important; height: auto !important;
+  border: 3px solid #fff !important; outline: 2.5px solid var(--gfx-line); border-radius: 14px !important; box-shadow: 0 0.3em 0 var(--gfx-line) !important; }
+${F} .arena .cbt[data-gfx-sd] .ava, ${F} .arena .cbt[data-gfx-foe] .ava { background: none !important; border: 0 !important; outline: 0; box-shadow: none !important; }
+${F} .arena .cbt[data-gfx-foe] .ava > svg { display: none; }
+${F} .arena .cbt[data-gfx-sd] > img.gfx-sd { left: -20% !important; right: auto !important; width: 140% !important; height: 92% !important; bottom: 2% !important; z-index: 1; }
+${F} .arena .cbt > .gfx-foe { position: absolute; left: 0; right: 0; bottom: 2%; height: 62%; z-index: 1; display: grid; place-items: end center; pointer-events: none; transform-origin: 50% 100%; }
+${F} .arena .cbt > .gfx-foe svg { width: 100%; height: 100%; overflow: visible; filter: ${STICKER}; }
+/* Name and HP float over the head as a little plate. */
+${F} .arena .cbt .nm { top: 0 !important; bottom: auto !important; left: -8% !important; right: -8% !important; z-index: 4 !important;
+  font-size: calc(var(--f) * 0.85 * var(--gf-scale, 1)) !important; padding: 0.1em 0.4em; border-radius: 999px;
+  background: var(--gfx-card); border: 2px solid var(--gfx-line); box-shadow: 0 0.12em 0 var(--gfx-line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+${F} .arena .cbt .bars { top: 10% !important; bottom: auto !important; left: 2% !important; right: 2% !important; z-index: 4 !important; }
+${F} .arena .cbt .hp, ${F} .arena .cbt .en { border-radius: 999px; outline: 1.5px solid var(--gfx-line); }
+${F} .arena .cbt .hpn { display: none !important; }
+${F} .arena .cbt .aff-badge { top: -2% !important; right: -14% !important; z-index: 5 !important; }
+${F} .arena .cbt .cbt-est { top: 20% !important; bottom: auto !important; z-index: 5; }
+/* Acting: the unit steps toward the other side; the game's own lift is replaced. */
+${F} .side.allies .cbt.acting { transform: translateX(45%) scale(1.08) !important; z-index: 40 !important; }
+${F} .side.enemies .cbt.acting { transform: translateX(-45%) scale(1.08) !important; z-index: 40 !important; }
+${F} .arena .cbt.dead { transform: scale(0.85) rotate(-8deg) !important; }
+/* Before the fight: dashed placement tiles on the ground, as on the Trickcal field. */
+${F} .gfx-tiles { position: absolute; left: 3%; right: 3%; top: 30%; bottom: 20%; z-index: 0; pointer-events: none;
+  display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(3, 1fr); gap: 1.4% 1%;
+  transform: perspective(60em) rotateX(28deg); transform-origin: 50% 100%; opacity: 0; transition: opacity 400ms ease; }
+${F} .gfx-tiles i { border: 2px dashed color-mix(in srgb, #fff 75%, transparent); border-radius: 10px; background: color-mix(in srgb, #fff 14%, transparent); }
+${F} .gfx-tiles i:nth-child(8n+5), ${F} .gfx-tiles i:nth-child(8n+6), ${F} .gfx-tiles i:nth-child(8n+7), ${F} .gfx-tiles i:nth-child(8n+8) {
+  background: color-mix(in srgb, #F2884B 16%, transparent); border-color: color-mix(in srgb, #FFE1C9 80%, transparent); }
+${H('[data-gfx-field][data-gfx-phase="prebattle"]')} .gfx-tiles { opacity: 1; }
+${F} .arena .cbt .hp > i { background: linear-gradient(180deg, #FF8A8A, #E0484E) !important; }
+${F} .side.allies .cbt .hp > i { background: linear-gradient(180deg, #8EE6A0, #3DA95A) !important; }
+${F} .arena .cbt .hp { background: #3B2A22 !important; height: calc(var(--f) * 0.55) !important; }
+/* The turn panel: one row along the bottom — the actor's face, then the six actions. */
+${F} .cbt-turn-slot { position: absolute !important; left: 12% !important; right: 12% !important; bottom: 0 !important; top: auto !important;
+  height: 19% !important; width: auto !important; max-width: none !important; order: 0 !important; z-index: 30 !important; flex: none !important; }
+${F} .cbt-turn { position: absolute !important; inset: 0 !important; width: auto !important; height: auto !important; gap: 0.6em !important; align-items: stretch !important;
+  padding: 0.45em 0.6em !important; background: color-mix(in srgb, #3B2E26 55%, transparent); border: 0;
+  border-radius: 18px 18px 0 0; backdrop-filter: blur(2px); }
+${F} .tu-hero { height: 100% !important; width: auto !important; aspect-ratio: 1 !important; border-radius: 50% !important; border: 3px solid var(--gfx-line) !important; clip-path: none !important; flex: none !important; align-self: center !important; }
+${F} .tu-hero .tu-id { display: none !important; }
+${F} .cbt-acts { flex: 1 1 auto !important; grid-template-columns: repeat(6, minmax(0, 1fr)) !important; grid-template-rows: minmax(0, 1fr) !important; gap: 0.5em !important; height: 100% !important; }
+${F} .cbt-act { border: 3px solid #fff !important; outline: 2px solid #3B2E26; border-radius: 10px !important; box-shadow: 0 0.22em 0 #3B2E26 !important;
+  background: linear-gradient(160deg, #FFB98A, #F2884B) !important; }
+${F} .cbt-act:nth-child(even) { background: linear-gradient(160deg, #A9D4FF, #5B9BE8) !important; }
+${F} .cbt-act.locked { filter: grayscale(0.7) brightness(0.9); }
+${F} .cbt-act .a-cost, ${F} .cbt-act .a-chip { color: #fff !important; text-shadow: 0 0.08em 0 #3B2E26; }
+${F} .cbt-act .cbt-tip { bottom: calc(100% + 0.6em) !important; top: auto !important; }
+
+/* ── Team: formation slots and the battle briefing ──────────────────────────────────────────────── */
+${TM} .slot[data-gfx-sd] { overflow: visible !important; }
+${TM} .slot[data-gfx-sd] .slot-art { background: radial-gradient(70% 40% at 50% 92%, color-mix(in srgb, var(--gfx-line) 30%, transparent), transparent 70%),
+  linear-gradient(170deg, var(--gfx-sky1), var(--gfx-sky2)) !important; }
+${TM} .slot[data-gfx-sd] .slot-art img { opacity: 0 !important; }
+${TM} .slot[data-gfx-sd] > img.gfx-sd { position: absolute; left: -10%; width: 120%; bottom: 14%; height: 108%; object-fit: contain; object-position: 50% 100%;
+  filter: ${STICKER}; pointer-events: none; z-index: 2; animation: gfx-float 2.6s ease-in-out infinite; }
+${TM} .slot.filled:nth-child(2) > img.gfx-sd { animation-delay: -0.9s; } ${TM} .slot.filled:nth-child(3) > img.gfx-sd { animation-delay: -1.7s; }
+@keyframes gfx-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6%); } }
+.gfx-team { display: flex; justify-content: center; align-items: flex-end; gap: 1.2em; height: calc(var(--f, 10px) * 13); margin: 0.4em 0 1.4em; pointer-events: none; }.gfx-team > span { position: relative; height: 100%; aspect-ratio: 2 / 3; display: grid; place-items: end center; animation: gfx-float 2.4s ease-in-out infinite; }
+.gfx-team > span:nth-child(2n) { animation-delay: -0.8s; } .gfx-team > span:nth-child(3n) { animation-delay: -1.5s; }
+.gfx-team > span::after { content: ""; position: absolute; bottom: -6%; left: 18%; right: 18%; height: 8%; border-radius: 50%;
+  background: color-mix(in srgb, var(--gfx-line, #6B4528) 30%, transparent); animation: gfx-shadow 2.4s ease-in-out infinite; }
+.gfx-team.win { height: calc(var(--f, 10px) * 11); margin: 0.2em 0 0.6em; }
+.gfx-team.win > span { animation: gfx-cheer 0.9s cubic-bezier(.4,0,.6,1) infinite; }
+.gfx-team.win > span::after { animation: gfx-shadow 0.9s ease-in-out infinite; }
+@keyframes gfx-cheer { 0%, 100% { transform: translateY(0) scale(1.06, 0.94); } 50% { transform: translateY(-22%) scale(0.96, 1.05); } }
+.gfx-team img { max-width: 140%; max-height: 100%; object-fit: contain; filter: ${STICKER}; }
+.gfx-team img.portrait { width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; border-radius: 14px; border: 3px solid #fff; outline: 2.5px solid var(--gfx-line, #6B4528); filter: none; }
+
+/* ── Home lobby ─────────────────────────────────────────────────────────────────────────────────── */
+${HP} .hm-plate { display: none !important; }
+.gfx-lobby { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+/* Lobby mode, as in the Trickcal Revive lobby: the cast stands large across the screen and the home's own
+   controls sit over them — round icons with outlined labels, a see-through top bar. */
+${LB} .hm-scene, ${LB} .hm-dock { position: relative; z-index: 4; }
+${LB} .hm-scene { pointer-events: none; } ${LB} .hm-scene > * { pointer-events: auto; }
+${LB} .gf-stage:has(.hm-screen) .gf-bar { background: linear-gradient(180deg, color-mix(in srgb, var(--gfx-ink) 55%, transparent), transparent) !important; border-bottom: 0 !important; }
+${LB} .hm-dock { background: none !important; border: 0 !important; box-shadow: none !important; justify-content: center; gap: 1.2em; }
+${LB} .hm-tile { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; display: flex !important; flex-direction: column !important; align-items: center !important;
+  gap: 0.1em !important; padding: 0 0.3em !important; background: none !important; border: 0 !important; box-shadow: none !important; }
+${LB} .hm-tile { font-size: calc(var(--f) * 1.5) !important; }
+${LB} .hm-tile > svg { width: 3.2em !important; height: 3.2em !important; padding: 0.6em; border-radius: 50%; color: #fff;
+  background: var(--gfx-tile, var(--gfx-accent)); border: 2.5px solid var(--gfx-line); box-shadow: 0 0.2em 0 var(--gfx-line), inset 0 -0.25em 0 rgba(0,0,0,0.12); }
+${LB} .hm-tile.roster { --gfx-tile: #FF8FB1; } ${LB} .hm-tile.formation { --gfx-tile: #6FB2F2; } ${LB} .hm-tile.summon { --gfx-tile: #F7C843; }
+${LB} .hm-tile.shop { --gfx-tile: #7FD39A; } ${LB} .hm-tile.inventory { --gfx-tile: #F2884B; }
+${LB} .hm-tile .nm, ${LB} .hm-side .lbl > span { font-family: var(--display) !important; color: #fff !important; -webkit-text-stroke: 3px var(--gfx-line); paint-order: stroke fill; letter-spacing: 0; }
+${LB} .hm-side { background: none !important; border: 0 !important; box-shadow: none !important; }
+${LB} .hm-side .lbl { display: inline-flex; align-items: center; gap: 0.35em; }
+${LB} .hm-side .lbl > svg { width: 2em; height: 2em; padding: 0.35em; border-radius: 50%; color: #fff; background: #B48CF0; border: 2.5px solid var(--gfx-line); box-shadow: 0 0.16em 0 var(--gfx-line); }
+${LB} .hm-cta { background: linear-gradient(180deg, #FFDC5E, #FFB81C) !important; color: #3B2610 !important; border: 3px solid #3B2610 !important;
+  box-shadow: 0 0.3em 0 #8A5A00, inset 0 0.2em 0 rgba(255,255,255,0.55) !important; }
+${LB} .hm-cta * { color: #3B2610 !important; }
+${LB} .hm-cta { width: auto !important; height: auto !important; min-height: 0 !important; padding: 0.35em 1.4em 0.45em !important; border-radius: 999px !important; align-self: flex-end; }
+${LB} .hm-cta .title, ${LB} .hm-cta .nodes { display: none !important; }
+${LB} .hm-cta .big { font-size: calc(var(--f) * 2.2) !important; line-height: 1 !important; }
+${LB} .hm-slot-bg { opacity: 0.85; }
+.gfx-lobby .who { position: absolute; translate: -50% -100%; height: calc(54% * var(--s, 1)); aspect-ratio: 2 / 3; pointer-events: auto; cursor: pointer;
+  animation: gfx-wander var(--d, 11s) ease-in-out infinite; animation-delay: var(--dl, 0s); }
+.gfx-lobby .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-bob 1.9s ease-in-out infinite; }
+.gfx-lobby .who img { max-width: 150%; max-height: 100%; object-fit: contain; filter: ${STICKER}; -webkit-user-drag: none; user-select: none; }
+.gfx-lobby .who::after { content: ""; position: absolute; bottom: -3%; left: 20%; right: 20%; height: 7%; border-radius: 50%; z-index: -1;
+  background: color-mix(in srgb, var(--gfx-line) 32%, transparent); }
+.gfx-lobby .who[data-squish] .body { animation: gfx-squash 380ms ease; }
+.gfx-lobby .who .say { position: absolute; bottom: 102%; left: 50%; translate: -50% 0; white-space: nowrap; padding: 0.3em 0.8em;
+  font-family: "Jua", "Malgun Gothic", sans-serif; font-size: calc(var(--f, 10px) * 1.05); color: var(--gfx-text);
+  background: var(--gfx-card); border: 2.5px solid var(--gfx-line); border-radius: 14px; box-shadow: 0 0.15em 0 var(--gfx-line); animation: gfx-pop 300ms ease both; }
+.gfx-lobby .who .say::after { content: ""; position: absolute; top: 100%; left: 50%; translate: -50% -1px; border: 0.45em solid transparent; border-top-color: var(--gfx-line); }
+/* Walking is the box sliding; turning round is only the sprite flipping, so the speech bubble never mirrors. */
+.gfx-lobby .who .flip { position: absolute; inset: 0; animation: gfx-flip var(--d, 11s) linear infinite; animation-delay: var(--dl, 0s); }
+@keyframes gfx-wander { 0%, 100% { transform: translateX(0); } 40%, 48% { transform: translateX(70%); } 88%, 96% { transform: translateX(0); } }
+@keyframes gfx-flip { 0%, 44% { transform: scaleX(1); } 44.01%, 92% { transform: scaleX(-1); } 92.01%, 100% { transform: scaleX(1); } }
+.gfx-lobby .who[data-talk], .gfx-lobby .who[data-talk] .flip { animation-play-state: paused; }
+.gfx-lobby[data-edit] .who, .gfx-lobby[data-edit] .who .flip { animation: none; outline: 2.5px dashed var(--gfx-accent); outline-offset: 2px; border-radius: 12px; cursor: grab; touch-action: none; }
+.gfx-lobby[data-edit] .who .body { animation: none; }
+.gfx-lobby[data-edit] { background: color-mix(in srgb, var(--gfx-ink) 25%, transparent); pointer-events: auto; }
+.gfx-lobby-tools { position: absolute; left: 50%; top: 2%; translate: -50% 0; display: flex; gap: 0.5em; pointer-events: auto; z-index: 5; }
+.gfx-lobby-tools button { font-family: "Jua", "Malgun Gothic", sans-serif; font-size: calc(var(--f, 10px) * 0.95); padding: 0.3em 0.9em; cursor: pointer;
+  color: var(--gfx-text); background: var(--gfx-card); border: 2px solid var(--gfx-line); border-radius: 999px; box-shadow: 0 0.18em 0 var(--gfx-line); }
+.gfx-lobby-tools button[data-main] { background: var(--gfx-accent); color: #fff; }
+.gfx-lobby:not([data-edit]) .gfx-lobby-tools { left: 13%; top: 3%; translate: 0 0; opacity: 0.9; }
+.gfx-lobby:not([data-edit]) .gfx-lobby-tools button:not([data-edit-toggle]) { display: none; }
+
+/* ── 7-day attendance ───────────────────────────────────────────────────────────────────────────── */
+${AT} .ev-panel { position: relative; overflow: visible !important; background-color: var(--gfx-card) !important; padding-right: 15% !important;
+  background-image: radial-gradient(color-mix(in srgb, var(--gfx-pick) 45%, transparent) 14%, transparent 15%) !important; background-size: 1.6em 1.6em !important;
+  border: 3px solid var(--gfx-line) !important; border-radius: 26px !important; box-shadow: 0 0.4em 0 var(--gfx-line) !important; }
+${AT} .ev-title { display: inline-block; padding: 0.15em 1em; color: #fff !important; background: var(--gfx-accent); border: 3px solid var(--gfx-line);
+  border-radius: 999px; box-shadow: 0 0.15em 0 var(--gfx-line); rotate: -2deg; text-shadow: 0 0.07em 0 color-mix(in srgb, var(--gfx-line) 60%, transparent); }
+${AT} .ev-day { position: relative; background: #fff !important; border: 2.5px solid var(--gfx-line) !important; border-radius: 16px !important;
+  box-shadow: 0 0.22em 0 var(--gfx-line) !important; clip-path: none !important; }
+${AT} .ev-day .item-art { filter: drop-shadow(0 0.1em 0 color-mix(in srgb, var(--gfx-line) 35%, transparent)); }
+${AT} .ev-day .tick { display: none !important; }
+${AT} .ev-day.done { background: color-mix(in srgb, var(--gfx-ink) 80%, #ddd) !important; }
+${AT} .ev-day.done > *:not(.tick) { opacity: 0.55; }
+${AT} .ev-day.done::after { content: "출석"; position: absolute; left: 50%; top: 42%; width: 62%; aspect-ratio: 1; translate: -50% -50%; rotate: -14deg;
+  display: grid; place-items: center; font-family: "Jua", "Malgun Gothic", sans-serif; font-size: 1.15em; color: #E0484E;
+  border: 3px solid #E0484E; border-radius: 50%; background: color-mix(in srgb, #fff 55%, transparent); box-shadow: inset 0 0 0 2px color-mix(in srgb, #E0484E 35%, transparent);
+  animation: gfx-stamp 420ms cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes gfx-stamp { from { scale: 1.8; opacity: 0; } to { scale: 1; opacity: 1; } }
+${AT} .ev-day.next { border-color: var(--gfx-accent) !important; box-shadow: 0 0.22em 0 var(--gfx-accent), 0 0 0 0.25em color-mix(in srgb, var(--gfx-accent) 25%, transparent) !important;
+  animation: gfx-float 1.4s ease-in-out infinite; }
+${AT} .ev-day.next::before { content: "오늘!"; position: absolute; top: -0.9em; left: 50%; translate: -50% 0; z-index: 2; padding: 0.05em 0.6em;
+  font-family: "Jua", "Malgun Gothic", sans-serif; font-size: 0.8em; color: #fff; background: var(--gfx-accent); border: 2px solid var(--gfx-line); border-radius: 999px; white-space: nowrap; }
+${AT} .ev-day.prize { background: linear-gradient(170deg, #FFF3C4, #FFD97A) !important; border-color: #B8860B !important; }
+${AT} .ev-n { display: inline-block; margin-top: 0.3em; padding: 0 0.6em; color: var(--gfx-line) !important; background: var(--gfx-pick);
+  border: 2px solid var(--gfx-line); border-radius: 999px; font-family: "Jua", "Malgun Gothic", sans-serif; }
+${AT} .ev-claim { font-family: "Jua", "Malgun Gothic", sans-serif !important; font-size: 1.15em !important; padding: 0.35em 2em !important; color: #fff !important;
+  background: var(--gfx-accent) !important; border: 3px solid var(--gfx-line) !important; border-radius: 999px !important; box-shadow: 0 0.25em 0 var(--gfx-line) !important; }
+${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px !important; background: var(--gfx-card) !important; box-shadow: 0 0.15em 0 var(--gfx-line) !important; }
+.gfx-ev-mascot { position: absolute; right: -3%; bottom: 0; width: 19%; height: 104%; display: grid; place-items: end center; pointer-events: none; z-index: 3; }
+.gfx-ev-mascot .body { width: 100%; height: 100%; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-bob 2s ease-in-out infinite; }
+.gfx-ev-mascot img, .gfx-ev-mascot svg { max-width: 150%; max-height: 100%; object-fit: contain; filter: ${STICKER}; }
+.gfx-ev-mascot .say { position: absolute; top: 2%; right: 70%; white-space: nowrap; padding: 0.3em 0.8em; font-family: "Jua", "Malgun Gothic", sans-serif;
+  color: var(--gfx-text); background: #fff; border: 2.5px solid var(--gfx-line); border-radius: 14px; box-shadow: 0 0.15em 0 var(--gfx-line); }
+
+/* ── Settings pieces this extension adds ───────────────────────────────────────────────────────── */
+.st-styles:has(> [data-gfx-set]) { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.st-sty[data-gfx-set] .st-mini i { border: 1.5px solid #6B4528; border-radius: 4px; }
+.gfx-colors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6em; margin-top: 0.8em; }
+.gfx-color { display: flex; align-items: center; gap: 0.5em; padding: 0.35em 0.6em; cursor: pointer;
+  border: 2px solid var(--ink-3); border-radius: 12px; background: var(--ink-2); font-size: var(--t-xs, 12px); }
+.gfx-color input { width: 2em; height: 1.6em; padding: 0; border: 2px solid var(--steel-dark); border-radius: 8px; background: none; cursor: pointer; }
+.gfx-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6em; margin-top: 0.6em; }
+.gfx-toggle { display: flex; flex-direction: column; gap: 0.2em; text-align: left; cursor: pointer; padding: 0.6em 0.8em;
+  border: 2px solid var(--ink-3); border-radius: 14px; background: var(--ink-2); color: var(--text); font: inherit; }
+.gfx-toggle b { font-family: var(--display); font-weight: 400; font-size: var(--t-sm, 13px); }
+.gfx-toggle b::before { content: "○ "; }
+.gfx-toggle[aria-pressed="true"] { border-color: var(--coral); }
+.gfx-toggle[aria-pressed="true"] b::before { content: "● "; color: var(--coral); }
+.gfx-toggle span { font-size: var(--t-tiny, 11px); color: var(--steel-faint); line-height: 1.4; }
+.gfx-field { display: flex; flex-direction: column; gap: 0.3em; margin-top: 0.7em; font-size: var(--t-xs, 12px); color: var(--steel-faint); }
+.gfx-field select, .gfx-field textarea { font: inherit; font-size: var(--t-xs, 12px); color: var(--text); background: var(--surface, #fff);
+  border: 2px solid var(--steel-dark); border-radius: 10px; padding: 0.45em 0.6em; }
+.gfx-field textarea { min-height: 4.2em; resize: vertical; font-family: ui-monospace, Consolas, monospace; }
+.gfx-sd-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5em, 1fr)); gap: 0.7em; margin-top: 0.8em; }
+.gfx-sd-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.35em; padding: 0.6em;
+  border: 2px solid var(--ink-3); border-radius: 14px; background: var(--ink-2); }
+.gfx-sd-thumb { width: 100%; aspect-ratio: 1; display: grid; place-items: end center; border-radius: 10px; overflow: hidden;
+  background: radial-gradient(80% 60% at 50% 80%, color-mix(in srgb, var(--coral) 18%, transparent), transparent 70%), var(--ink); }
+.gfx-sd-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.gfx-sd-thumb img.portrait { width: 100%; height: 100%; object-fit: cover; opacity: 0.35; filter: grayscale(0.6); }
+.gfx-sd-card b { font-family: var(--display); font-weight: 400; font-size: var(--t-xs, 12px); text-align: center; line-height: 1.2; }
+.gfx-sd-card .st-chips { justify-content: center; }
+.gfx-sd-card .st-chip { font-size: var(--t-tiny, 11px); padding: 0.2em 0.7em; }
+.gfx-sd-card[data-busy] .gfx-sd-thumb::after { content: "그리는 중…"; position: absolute; inset: 0.6em 0.6em auto; aspect-ratio: 1;
+  display: grid; place-items: center; font-family: var(--display); color: var(--coral); background: color-mix(in srgb, var(--ink) 70%, transparent); border-radius: 10px; }
+`;
+
+  let sheet = null, varSheet = null;
+  function styleSheet() {
+    if (!sheet) { sheet = new CSSStyleSheet(); sheet.replaceSync(CSS); }
+    return sheet;
+  }
+  // The picked colours: a second, tiny sheet rewritten on every change.
+  let varText = "";
+  function paintVars() {
+    if (!varSheet) varSheet = new CSSStyleSheet();
+    const c = prefs.colors;
+    const text = T + " .gf-arena, .gfx-load { " + COLOR_FIELDS.map(([k]) => "--gfx-" + k + ": " + c[k] + ";").join(" ") + " }";
+    if (text !== varText) { varText = text; varSheet.replaceSync(text); }
+    return varSheet;
+  }
+
+  /* ═════════════ Fonts ═════════════
+   * The page's CSP allows fonts from this server only, so the rounded fonts come through Marinara's own font
+   * library (/api/fonts, files in the data folder). Missing ones fall back to Malgun Gothic until the player
+   * fetches them with the button in the colour plate. */
+  let fonts = { status: "loading", missing: FONT_FAMILIES.slice(), note: "" };
+  const addedFaces = new Set();
+  async function loadFonts() {
+    try {
+      const res = await fetch("/api/fonts", { credentials: "same-origin" });
+      const list = res.ok ? await res.json() : [];
+      for (const f of Array.isArray(list) ? list : []) {
+        if (!FONT_FAMILIES.includes(f.family) || addedFaces.has(f.url)) continue;
+        addedFaces.add(f.url);
+        const desc = { weight: f.weight || "400", style: f.style || "normal" };
+        if (f.unicodeRange) desc.unicodeRange = f.unicodeRange;
+        try { document.fonts.add(new FontFace(f.family, "url(" + JSON.stringify(f.url) + ")", desc)); } catch {}
+      }
+      const have = new Set((Array.isArray(list) ? list : []).map((f) => f.family));
+      const missing = FONT_FAMILIES.filter((f) => !have.has(f));
+      fonts = { status: missing.length ? "missing" : "ok", missing, note: fonts.note };
+    } catch {
+      fonts = { status: "error", missing: FONT_FAMILIES.slice(), note: "" };
+    }
+    paintSettings();
+  }
+  async function fetchFonts() {
+    if (fonts.status === "fetching") return;
+    const want = fonts.missing.slice();
+    fonts = { ...fonts, status: "fetching", note: "" };
+    paintSettings();
+    let failed = "";
+    for (const family of want) {
+      try {
+        const res = await fetch("/api/fonts/google/download", {
+          method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json" }, body: JSON.stringify({ family }),
+        });
+        if (!res.ok && res.status !== 409) failed = ((await res.json().catch(() => null))?.error) || "HTTP " + res.status;
+      } catch (e) { failed = e.message; }
+    }
+    fonts.note = failed ? "일부 글꼴을 받지 못했습니다: " + failed : "";
+    await loadFonts();
+  }
+
+  /* ═════════════ The game ═════════════ */
+  function host() { return document.querySelector(HOST_TAG); }
+  function gameRoot() { return host()?.shadowRoot || null; }
+  const runId = () => { const h = host(); return h && h._run && h._run.runId ? String(h._run.runId) : ""; };
+  async function gf(path, body) {
+    const res = await fetch("/api/gacha-forge" + path, {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.ok === false) throw Error((data && data.error) || "HTTP " + res.status);
+    return data;
+  }
+
+  // Per world: the roster (to match portraits to names) and the SD sprites made for it.
+  const worlds = new Map(); // runId -> { cards, byPortrait: Map(path -> name), sd: {name: {url,...}}, state }
+  const pathOf = (u) => { try { return new URL(u, location.origin).pathname; } catch { return String(u || ""); } };
+  function world(id = runId()) {
+    if (!id) return null;
+    let w = worlds.get(id);
+    if (!w) { w = { id, cards: [], byPortrait: new Map(), sd: {}, state: "new", busy: new Set(), note: "" }; worlds.set(id, w); }
+    return w;
+  }
+  async function loadWorld(force = false) {
+    const w = world();
+    if (!w || (!force && w.state !== "new")) return w;
+    w.state = "loading";
+    try {
+      const [ro, stored] = await Promise.all([gf("/roster", { runId: w.id }), storeGet()]);
+      w.cards = (ro.cards || []).filter((c) => c && c.kind === "character" && c.name);
+      w.byPortrait = new Map(w.cards.filter((c) => c.portrait).map((c) => [pathOf(c.portrait), c.name]));
+      const sd = stored["sd:" + w.id];
+      w.sd = sd && typeof sd === "object" ? sd : {};
+      if (stored.prefs) { prefs = normalizePrefs(stored.prefs); try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {} }
+      w.state = "ready";
+    } catch (e) {
+      w.state = "error";
+      w.note = "캐릭터 목록을 읽지 못했습니다: " + e.message;
+    }
+    refresh();
+    return w;
+  }
+  const sdUrl = (name) => { const w = world(); const e = w && name && w.sd[name]; return e && e.url ? e.url : ""; };
+  const anySd = () => { const w = world(); return w ? Object.values(w.sd).map((e) => e && e.url).filter(Boolean) : []; };
+
+  /* ═════════════ Applying ═════════════ */
+  function setFlag(h, name, value) {
+    if (value) { if (!h.hasAttribute(name)) h.setAttribute(name, ""); }
+    else if (h.hasAttribute(name)) h.removeAttribute(name);
+  }
+  function apply() {
+    const h = host(), root = h?.shadowRoot;
+    if (!root) return;
+    const sheets = root.adoptedStyleSheets, base = styleSheet(), vars = paintVars();
+    if (!sheets.includes(base) || !sheets.includes(vars)) {
+      root.adoptedStyleSheets = [...sheets.filter((s) => s !== sheet && s !== varSheet), sheet, varSheet];
+    }
+    if (current) { if (h.getAttribute(ATTR) !== current) h.setAttribute(ATTR, current); }
+    else if (h.hasAttribute(ATTR)) h.removeAttribute(ATTR);
+    setFlag(h, "data-gfx-box", current && prefs.opts.box);
+    setFlag(h, "data-gfx-sticker", current && prefs.opts.sticker);
+    setFlag(h, "data-gfx-motion", current && prefs.opts.motion && !matchMedia("(prefers-reduced-motion: reduce)").matches);
+    setFlag(h, "data-gfx-field", current && prefs.opts.field);
+    setFlag(h, "data-gfx-team", current && prefs.opts.team);
+    setFlag(h, "data-gfx-lobby", current && prefs.opts.lobby);
+    setFlag(h, "data-gfx-hideplate", current && prefs.opts.lobby && prefs.opts.hidePlate);
+    setFlag(h, "data-gfx-attend", current && prefs.opts.attend);
+  }
+
+  const el = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+  const MOCHI = '<svg class="gfx-mochi" viewBox="0 0 120 118" aria-hidden="true"><path class="stem" d="M60 30 Q57 16 66 10"/>'
+    + '<path class="leaf" d="M66 10 Q78 0 88 8 Q78 18 66 10 Z"/><path class="body" d="M14 86 Q10 32 60 30 Q110 32 106 86 Q104 112 60 112 Q16 112 14 86 Z"/>'
+    + '<ellipse class="eye" cx="44" cy="70" rx="5.5" ry="7.5"/><ellipse class="eye" cx="76" cy="70" rx="5.5" ry="7.5"/>'
+    + '<circle class="shine" cx="46" cy="67" r="2"/><circle class="shine" cx="78" cy="67" r="2"/>'
+    + '<ellipse class="blush" cx="32" cy="84" rx="8" ry="5"/><ellipse class="blush" cx="88" cy="84" rx="8" ry="5"/>'
+    + '<path class="mouth" d="M53 82 Q60 89 67 82"/></svg>';
+  function heroNode(url) {
+    if (url) { const i = el("img"); i.src = url; i.alt = ""; i.draggable = false; return i; }
+    const s = el("span"); s.innerHTML = MOCHI; return s.firstChild;
+  }
+
+  /* ── Story and battle sprites ── */
+  function nameFromImg(img) {
+    const w = world();
+    return w && img && img.getAttribute("src") ? w.byPortrait.get(pathOf(img.getAttribute("src"))) || "" : "";
+  }
+  function placeSd(container, url) {
+    let img = container.querySelector(":scope > img.gfx-sd");
+    if (!url) { if (img) img.remove(); if (container.hasAttribute("data-gfx-sd")) container.removeAttribute("data-gfx-sd"); return; }
+    if (!img) { img = el("img", "gfx-sd"); img.alt = ""; img.draggable = false; container.append(img); }
+    if (img.getAttribute("src") !== url) img.setAttribute("src", url);
+    if (!container.hasAttribute("data-gfx-sd")) container.setAttribute("data-gfx-sd", "");
+  }
+  function paintSprites(root) {
+    const on = !!current;
+    const whoEl = root.querySelector(".vn-who");
+    const who = whoEl && !whoEl.hasAttribute("data-narration") ? whoEl.textContent.replace(/\s*\(.*?\)\s*$/, "").trim() : "";
+    const plates = Array.from(root.querySelectorAll(".vn-plate"));
+    // Matched by portrait first; the speaker's name only when a single portrait is up (an outfit's art is not
+    // the roster portrait), so a second figure on screen never wears the speaker's sprite.
+    const openCount = plates.filter((p) => p.getAttribute("data-open") === "true").length;
+    for (const plate of plates) {
+      let url = "";
+      if (on && prefs.opts.storySd && plate.getAttribute("data-open") === "true") {
+        const front = plate.getAttribute("data-front") || "a";
+        const img = plate.querySelector('.vn-art[data-art="' + front + '"] > img');
+        const name = nameFromImg(img) || (openCount === 1 && who ? who : "");
+        url = sdUrl(name);
+      }
+      if (url || plate.hasAttribute("data-gfx-sd")) placeSd(plate, url);
+    }
+    const field = on && prefs.opts.field;
+    for (const card of root.querySelectorAll(".cbt")) {
+      let url = "";
+      if (on && (prefs.opts.battleSd || field)) {
+        const name = nameFromImg(card.querySelector(".ava-photo")) || (card.querySelector(".nm")?.textContent || "").trim();
+        url = sdUrl(name);
+      }
+      if (url || card.hasAttribute("data-gfx-sd")) placeSd(card, url);
+      // On the field, a foe with no art of its own is a mochi monster in its element's colour.
+      const foe = field && !url && card.classList.contains("enemy") && !card.querySelector(".ava-photo");
+      placeFoe(card, foe ? card.getAttribute("data-aff") || "" : null);
+    }
+    for (const arena of root.querySelectorAll(".arena")) {
+      const tiles = arena.querySelector(":scope > .gfx-tiles");
+      if (field && !tiles) {
+        const t = el("div", "gfx-tiles");
+        for (let i = 0; i < 24; i++) t.append(el("i"));
+        const shade = arena.querySelector(":scope > .cb-shade");
+        if (shade) shade.after(t); else arena.prepend(t);
+      } else if (!field && tiles) tiles.remove();
+    }
+    paintTeam(root, on && prefs.opts.team);
+    paintLobby(root, on && prefs.opts.lobby);
+    paintAttend(root, on && prefs.opts.attend);
+    // World creation: the mascot in place of the emblem.
+    for (const center of root.querySelectorAll(".forge-center")) {
+      const has = center.querySelector(":scope > .gfx-forge-mascot");
+      if (on && !has) { const m = el("div", "gfx-forge-mascot"); m.append(heroNode(pick(anySd()))); center.prepend(m); }
+      else if (!on && has) has.remove();
+    }
+  }
+  const pick = (list) => (list.length ? list[Math.floor(Math.random() * list.length)] : "");
+
+  /* ── Mochi foes ── */
+  // Mushroom foes, the cap in the element's colour (the Trickcal field's little monsters).
+  const AFF_FILL = { fire: "#F2884B", water: "#6FB2F2", wind: "#7FD39A", earth: "#D9A04E", light: "#F7CF4A", dark: "#A07FE0" };
+  function foeSvg(aff) {
+    const cap = AFF_FILL[aff] || "#F2884B";
+    return '<svg class="gfx-mochi" viewBox="0 0 120 120" aria-hidden="true">'
+      + '<path class="body" d="M30 70 Q28 112 60 112 Q92 112 90 70 Z"/>'
+      + '<path class="body" style="fill:' + cap + '" d="M8 70 Q8 18 60 16 Q112 18 112 70 Q60 82 8 70 Z"/>'
+      + '<ellipse class="shine" cx="38" cy="38" rx="9" ry="6" style="opacity:.7"/><ellipse class="shine" cx="80" cy="34" rx="6" ry="4.5" style="opacity:.7"/>'
+      + '<ellipse class="shine" cx="62" cy="52" rx="5" ry="3.5" style="opacity:.55"/>'
+      + '<ellipse class="eye" cx="48" cy="88" rx="4.5" ry="6"/><ellipse class="eye" cx="72" cy="88" rx="4.5" ry="6"/>'
+      + '<circle class="shine" cx="49.5" cy="86" r="1.6"/><circle class="shine" cx="73.5" cy="86" r="1.6"/>'
+      + '<ellipse class="blush" cx="38" cy="98" rx="6" ry="3.5"/><ellipse class="blush" cx="82" cy="98" rx="6" ry="3.5"/>'
+      + '<path class="mouth" d="M55 99 Q60 103 65 99"/></svg>';
+  }
+  function placeFoe(card, aff) {
+    let n = card.querySelector(":scope > .gfx-foe");
+    if (aff === null) { if (n) n.remove(); if (card.hasAttribute("data-gfx-foe")) card.removeAttribute("data-gfx-foe"); return; }
+    if (!n || n.getAttribute("data-aff") !== aff) {
+      n?.remove();
+      n = el("span", "gfx-foe");
+      n.setAttribute("data-aff", aff);
+      n.innerHTML = foeSvg(aff);
+      card.append(n);
+    }
+    if (!card.hasAttribute("data-gfx-foe")) card.setAttribute("data-gfx-foe", "");
+  }
+
+  /* ── Team: formation slots and the briefing before a battle ── */
+  function paintTeam(root, enabled) {
+    for (const slot of root.querySelectorAll(".slot")) {
+      const url = enabled && slot.classList.contains("filled") ? sdUrl(nameFromImg(slot.querySelector(".slot-art img"))) : "";
+      if (url || slot.hasAttribute("data-gfx-sd")) placeSd(slot, url);
+    }
+    // The result screen after a win: the team that fought, jumping for joy.
+    for (const verdict of root.querySelectorAll('[data-screen="result"] .rs-verdict')) {
+      const screen = verdict.parentElement;
+      let row = screen.querySelector(":scope > .gfx-team");
+      const won = !verdict.closest(".root.lose");
+      const urls = enabled && won ? Array.from(screen.querySelectorAll(".rs-b-row .nm")).map((n) => sdUrl(n.textContent.trim())).filter(Boolean) : [];
+      const key = urls.join("|");
+      if (row && row.getAttribute("data-key") === key) continue;
+      row?.remove();
+      if (!urls.length) continue;
+      row = el("div", "gfx-team win");
+      row.setAttribute("data-key", key);
+      urls.forEach((u, i) => { const sp = el("span"), im = el("img"); im.src = u; im.alt = ""; sp.style.animationDelay = (-i * 0.18).toFixed(2) + "s"; sp.append(im); row.append(sp); });
+      verdict.after(row);
+    }
+    for (const brief of root.querySelectorAll(".briefing")) {
+      let row = brief.querySelector(":scope > .gfx-team");
+      if (!enabled) { row?.remove(); continue; }
+      const team = Array.from(root.querySelectorAll(".side.allies .cbt")).map((c) => {
+        const img = c.querySelector(".ava-photo");
+        const name = nameFromImg(img) || (c.querySelector(".nm")?.textContent || "").trim();
+        return { url: sdUrl(name), portrait: img?.getAttribute("src") || "" };
+      }).filter((t) => t.url || t.portrait);
+      const key = team.map((t) => t.url || t.portrait).join("|");
+      if (row && row.getAttribute("data-key") === key) continue;
+      row?.remove();
+      if (!team.length) continue;
+      row = el("div", "gfx-team");
+      row.setAttribute("data-key", key);
+      for (const t of team) {
+        const s = el("span"), i = el("img", t.url ? "" : "portrait");
+        i.src = t.url || t.portrait;
+        i.alt = "";
+        s.append(i);
+        row.append(s);
+      }
+      const start = brief.querySelector(".fstart");
+      if (start) start.before(row); else brief.append(row);
+    }
+  }
+
+  /* ── Home lobby ── */
+  let lobbyEdit = false, lobbyPicked = "";
+  function homeCast() {
+    const w = world();
+    if (!w) return [];
+    const mine = prefs.home[w.id] || {};
+    const list = w.cards.filter((c) => sdUrl(c.name) && (mine[c.name] ? mine[c.name].on : true));
+    return list.map((c, i) => {
+      const e = mine[c.name] || {};
+      const auto = list.length === 1 ? 50 : 12 + (i * 76) / (list.length - 1);
+      return { name: c.name, url: sdUrl(c.name), x: Number.isFinite(e.x) ? e.x : auto, y: Number.isFinite(e.y) ? e.y : 101 - (i % 2) * 5, s: e.s || 1 };
+    });
+  }
+  function setHome(name, patch) {
+    const w = world();
+    if (!w) return;
+    const cast = (prefs.home[w.id] = prefs.home[w.id] || {});
+    cast[name] = { on: true, x: NaN, y: NaN, s: 1, ...cast[name], ...patch };
+  }
+  function paintLobby(root, enabled) {
+    for (const screen of root.querySelectorAll(".hm-screen")) {
+      let lobby = screen.querySelector(":scope > .gfx-lobby");
+      if (!enabled) { lobby?.remove(); continue; }
+      const cast = homeCast();
+      const key = (lobbyEdit ? "E:" + lobbyPicked + ":" : "") + cast.map((c) => [c.name, c.url, c.x.toFixed(1), c.y.toFixed(1), c.s].join(",")).join("|");
+      if (lobby && lobby.getAttribute("data-key") === key) continue;
+      lobby?.remove();
+      lobby = el("div", "gfx-lobby");
+      lobby.setAttribute("data-key", key);
+      if (lobbyEdit) lobby.setAttribute("data-edit", "");
+      cast.forEach((c, i) => lobby.append(makeWho(c, i)));
+      lobby.append(lobbyTools());
+      const scene = screen.querySelector(":scope > .hm-scene");
+      if (scene) scene.after(lobby); else screen.append(lobby);
+    }
+  }
+  function makeWho(c, i) {
+    const who = el("div", "who");
+    who.setAttribute("data-name", c.name);
+    who.style.cssText = "left:" + c.x + "%;top:" + c.y + "%;--s:" + c.s + ";--d:" + (9 + ((i * 3.7) % 6)).toFixed(1) + "s;--dl:" + (-i * 2.3).toFixed(1) + "s";
+    if (lobbyEdit && c.name === lobbyPicked) who.style.outlineStyle = "solid";
+    const flip = el("div", "flip"), body = el("div", "body"), img = el("img");
+    img.src = c.url;
+    img.alt = c.name;
+    img.draggable = false;
+    body.append(img);
+    flip.append(body);
+    who.append(flip);
+    on(who, "pointerdown", (e) => {
+      e.stopPropagation();
+      if (!lobbyEdit) return;
+      e.preventDefault();
+      lobbyPicked = c.name;
+      const box = who.parentElement.getBoundingClientRect();
+      who.setPointerCapture(e.pointerId);
+      const move = (ev) => {
+        const x = Math.min(98, Math.max(2, ((ev.clientX - box.left) / box.width) * 100));
+        const y = Math.min(108, Math.max(15, ((ev.clientY - box.top) / box.height) * 100 + 14 * c.s));
+        who.style.left = x + "%";
+        who.style.top = y + "%";
+        c.x = x; c.y = y;
+      };
+      const up = () => {
+        who.removeEventListener("pointermove", move);
+        who.removeEventListener("pointerup", up);
+        setHome(c.name, { x: c.x, y: c.y });
+        savePrefs();
+        refresh();
+      };
+      who.addEventListener("pointermove", move);
+      who.addEventListener("pointerup", up);
+    });
+    on(who, "click", (e) => {
+      e.stopPropagation();
+      if (lobbyEdit) return;
+      who.removeAttribute("data-squish");
+      void who.offsetWidth;
+      who.setAttribute("data-squish", "");
+      who.querySelector(":scope > .say")?.remove();
+      const say = el("span", "say", pick(LOBBY_LINES));
+      who.setAttribute("data-talk", "");
+      who.append(say);
+      setTimeout(() => { say.remove(); if (!who.querySelector(".say")) who.removeAttribute("data-talk"); }, 2200);
+    });
+    on(who, "wheel", (e) => {
+      if (!lobbyEdit) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setHome(c.name, { s: Math.min(2.5, Math.max(0.4, (c.s || 1) * (e.deltaY < 0 ? 1.08 : 0.92))) });
+      lobbyPicked = c.name;
+      savePrefs();
+      refresh();
+    }, { passive: false });
+    return who;
+  }
+  function lobbyTools() {
+    const tools = el("div", "gfx-lobby-tools");
+    const btn = (text, fn, attr) => {
+      const b = el("button", "", text);
+      b.type = "button";
+      if (attr) b.setAttribute(attr, "");
+      on(b, "click", (e) => { e.stopPropagation(); fn(); });
+      on(b, "pointerdown", (e) => e.stopPropagation());
+      return b;
+    };
+    const scale = (f) => () => {
+      const c = homeCast().find((x) => x.name === lobbyPicked);
+      if (!c) return;
+      setHome(c.name, { s: Math.min(2.5, Math.max(0.4, c.s * f)) });
+      savePrefs();
+      refresh();
+    };
+    if (lobbyEdit) {
+      tools.append(btn("완료", () => { lobbyEdit = false; lobbyPicked = ""; refresh(); }, "data-main"),
+        btn("크게", scale(1.12)), btn("작게", scale(0.89)),
+        btn("자동 배치", () => { const w = world(); if (w) { for (const e of Object.values(prefs.home[w.id] || {})) { e.x = NaN; e.y = NaN; e.s = 1; } savePrefs(); refresh(); } }));
+    } else tools.append(btn("✥ 배치", () => { lobbyEdit = true; refresh(); }, "data-edit-toggle"));
+    return tools;
+  }
+
+  const chatter = setInterval(() => {
+    if (disposed || lobbyEdit || !current || !prefs.opts.lobby) return;
+    const cast = Array.from(gameRoot()?.querySelectorAll(".gfx-lobby .who:not([data-talk])") || []);
+    const who = pick(cast);
+    if (!who || document.hidden) return;
+    const say = el("span", "say", pick(LOBBY_LINES));
+    who.setAttribute("data-talk", "");
+    who.append(say);
+    setTimeout(() => { say.remove(); if (!who.querySelector(".say")) who.removeAttribute("data-talk"); }, 2600);
+  }, 7000);
+
+  /* ── Attendance ── */
+  function paintAttend(root, enabled) {
+    for (const panel of root.querySelectorAll(".ev-panel")) {
+      let m = panel.querySelector(":scope > .gfx-ev-mascot");
+      if (!enabled) { m?.remove(); continue; }
+      if (m) continue;
+      m = el("div", "gfx-ev-mascot");
+      const body = el("div", "body");
+      body.append(heroNode(pick(anySd())));
+      const claimed = panel.querySelector(".ev-day.next") ? "오늘 도장 찍으러 왔구나!" : "내일도 꼭 와야 해~";
+      m.append(body, el("span", "say", claimed));
+      panel.append(m);
+    }
+  }
+
+  /* ── Loading screen ──
+   * The game shows its own short loading states per screen; the screen's state field says when. The overlay
+   * lives in the game's shadow root (the game element itself is what goes fullscreen), so it is put back
+   * straight away whenever the game rewrites the root. */
+  const LOADING_BY_VIEW = {
+    combat: (h) => h._combatPhase === "loading", beat: (h) => h._beatState === "loading",
+    chapters: (h) => h._chaptersState === "loading", chapter: (h) => h._planState === "loading",
+    summon: (h) => h._summonBannerState === "loading", tower: (h) => h._towerState === "loading",
+    farm: (h) => h._farmState === "loading", roster: (h) => h._rosterState === "loading",
+    inventory: (h) => h._inventoryState === "loading", formation: (h) => h._formationState === "loading",
+  };
+  function loadingNow(h) {
+    if (!h || !h.shadowRoot) return false;
+    if (h._boot === "idle" || h._boot === "loading") return true;
+    const test = LOADING_BY_VIEW[h._hudView];
+    try { return !!(test && test(h)); } catch { return false; }
+  }
+  let load = null; // { node, since, progress, tipAt, shownAt, ending }
+  function makeLoad() {
+    const node = el("div", "gfx-load");
+    node.setAttribute("data-gfx-ui", "");
+    const title = el("div", "gfx-load-title", "Now Loading");
+    for (let i = 0; i < 3; i++) title.append(el("i", "", "."));
+    const name = host()?._run?.name;
+    const worldName = el("div", "gfx-load-world", name ? String(name) : "");
+    const stage = el("div", "gfx-load-stage");
+    const hero = el("div", "gfx-load-hero");
+    const sds = anySd();
+    hero.append(heroNode(pick(sds)));
+    stage.append(el("i", "gfx-load-shadow"), hero);
+    on(stage, "click", (e) => {
+      e.stopPropagation();
+      stage.removeAttribute("data-squish");
+      void stage.offsetWidth;
+      stage.setAttribute("data-squish", "");
+      const pop = el("span", "gfx-load-pop", pick(["말랑!", "꾹!", "몰캉~", "뿌잉"]));
+      stage.append(pop);
+      setTimeout(() => pop.remove(), 650);
+    });
+    const foot = el("div", "gfx-load-foot");
+    const tip = el("div", "gfx-load-tip");
+    tip.append(el("b", "", "TIP"), el("span", "", pick(TIPS)));
+    const bar = el("div", "gfx-load-bar");
+    const fill = el("i", "gfx-load-fill");
+    const runner = el("div", "gfx-load-runner");
+    runner.append(heroNode(pick(sds)));
+    bar.append(fill, runner, el("em", "gfx-load-pct", "0%"));
+    foot.append(tip, bar);
+    node.append(title, worldName, stage, foot);
+    return node;
+  }
+  function paintLoad() {
+    if (!load) return;
+    const box = load.node.getBoundingClientRect();
+    if (box.width) load.node.style.setProperty("--u", Math.max(5, Math.min(box.height * 0.016, box.width * 0.009)).toFixed(2) + "px");
+    const p = Math.round(load.progress);
+    const fill = load.node.querySelector(".gfx-load-fill"), runner = load.node.querySelector(".gfx-load-runner");
+    if (fill) fill.style.width = "calc((100% - 6px) * " + p / 100 + ")";
+    if (runner) runner.style.left = "calc(3px + (100% - 6px) * " + p / 100 + ")";
+    const pct = load.node.querySelector(".gfx-load-pct");
+    if (pct) pct.textContent = p + "%";
+  }
+  function ensureLoadMounted() {
+    const root = gameRoot();
+    if (load && root && load.node.parentNode !== root) root.append(load.node);
+  }
+  let loadingSince = 0;
+  function tickLoading() {
+    if (disposed) return;
+    const h = host();
+    // The battle phase as a host attribute, for rules that differ before and during the fight.
+    const phase = h && h._hudView === "combat" ? String(h._combatPhase || "") : "";
+    if (h && (h.getAttribute("data-gfx-phase") || "") !== phase) { if (phase) h.setAttribute("data-gfx-phase", phase); else h.removeAttribute("data-gfx-phase"); }
+    const want = !!current && prefs.opts.loading && loadingNow(h);
+    const now = performance.now();
+    if (want) {
+      if (!loadingSince) loadingSince = now;
+      // Short waits stay quiet: only a load still running after 160ms gets the screen (and a stuck one only once).
+      if (!load && now - loadingSince > 160 && now - loadingSince < 25000) {
+        load = { node: makeLoad(), progress: 4, tipAt: now, shownAt: now, ending: 0 };
+        ensureLoadMounted();
+      }
+    } else loadingSince = 0;
+    if (!load) return;
+    ensureLoadMounted();
+    // A state the game never clears (an error it shows on its own screen) must not hide that screen: 25s at most.
+    if (!load.ending && ((!want && now - load.shownAt > 900) || now - load.shownAt > 25000)) load.ending = now;
+    if (load.ending) {
+      load.progress = Math.min(100, load.progress + 12);
+      if (load.progress >= 100 && now - load.ending > 260) {
+        const node = load.node;
+        node.setAttribute("data-out", "");
+        load = null;
+        setTimeout(() => node.remove(), 280);
+        return;
+      }
+    } else {
+      load.progress += (92 - load.progress) * 0.035;
+      if (now - load.tipAt > 4200) {
+        load.tipAt = now;
+        const span = load.node.querySelector(".gfx-load-tip span");
+        if (span) { const n = el("span", "", pick(TIPS.filter((t) => t !== span.textContent))); span.replaceWith(n); }
+      }
+    }
+    paintLoad();
+  }
+
+  /* ═════════════ Settings → 화면 → UI 스타일 ═════════════ */
+  function makeCard([id, label, desc]) {
+    const c = prefs.colors;
+    const b = el("button", "st-sty");
+    b.type = "button";
+    b.setAttribute("data-gfx-set", id);
+    const mini = el("span", "st-mini");
+    mini.style.background = c.sky1;
+    for (const [l, t, w, hgt, bg] of [[8, 10, 84, 14, c.card], [8, 31, 50, 34, c.card], [62, 31, 30, 15, c.accent], [8, 72, 84, 18, c.card]]) {
+      const i = el("i");
+      i.style.cssText = "left:" + l + "%;top:" + t + "%;width:" + w + "%;height:" + hgt + "%;background:" + bg;
+      mini.append(i);
+    }
+    const lbl = el("span", "st-swlbl");
+    lbl.append(el("b", "", label), el("span", "", desc));
+    b.append(mini, el("span", "st-tick", "✓"), lbl);
+    on(b, "click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (disposed) return;
+      current = id;
+      writeStyle(current);
+      refresh();
+      loadWorld();
+    });
+    return b;
+  }
+  function plate(title, key) {
+    const p = el("div", "st-plate");
+    p.setAttribute("data-gfx-plate", key);
+    const hd = el("div", "hd");
+    hd.append(el("h3", "", title));
+    p.append(hd);
+    return p;
+  }
+  function hint(text, key) {
+    const p = el("p", "hint", text);
+    p.style.cssText = "display:block;margin:.7em 0 0";
+    if (key) p.setAttribute("data-gfx-note", key);
+    return p;
+  }
+  function chip(text, fn, attrs = {}) {
+    const b = el("button", "st-chip", text);
+    b.type = "button";
+    for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v);
+    on(b, "click", (e) => { e.stopPropagation(); fn(b); });
+    return b;
+  }
+
+  function colorPlate() {
+    const p = plate("말랑 색상", "colors");
+    const row = el("div", "st-chips");
+    for (const [id, label, colors] of PRESETS) {
+      row.append(chip(label, () => { prefs.colors = { ...colors }; prefs.preset = id; savePrefs(); refresh(); }, { "data-gfx-preset": id }));
+    }
+    const grid = el("div", "gfx-colors");
+    for (const [k, label] of COLOR_FIELDS) {
+      const lab = el("label", "gfx-color");
+      const input = el("input");
+      input.type = "color";
+      input.setAttribute("data-gfx-color", k);
+      on(input, "input", () => { prefs.colors[k] = cleanColor(input.value, prefs.colors[k]); prefs.preset = ""; apply(); paintVars(); });
+      on(input, "change", () => { savePrefs(); paintSettings(); });
+      on(lab, "click", (e) => e.stopPropagation());
+      lab.append(input, el("span", "", label));
+      grid.append(lab);
+    }
+    const fontRow = el("div", "st-chips");
+    fontRow.style.marginTop = ".7em";
+    fontRow.append(chip("글꼴 받기", () => fetchFonts(), { "data-gfx-font-get": "" }));
+    p.append(row, grid, hint("", "fonts"), fontRow);
+    return p;
+  }
+  function optionPlate() {
+    const p = plate("스토리 · 전투 이미지", "opts");
+    const grid = el("div", "gfx-toggles");
+    for (const [k, label, desc] of OPTION_FIELDS) {
+      const b = el("button", "gfx-toggle");
+      b.type = "button";
+      b.setAttribute("data-gfx-opt", k);
+      b.append(el("b", "", label), el("span", "", desc));
+      on(b, "click", (e) => { e.stopPropagation(); prefs.opts[k] = !prefs.opts[k]; savePrefs(); refresh(); });
+      grid.append(b);
+    }
+    p.append(grid);
+    return p;
+  }
+
+  function toggleGrid(fields) {
+    const grid = el("div", "gfx-toggles");
+    for (const [k, label, desc] of fields) {
+      const b = el("button", "gfx-toggle");
+      b.type = "button";
+      b.setAttribute("data-gfx-opt", k);
+      b.append(el("b", "", label), el("span", "", desc));
+      on(b, "click", (e) => { e.stopPropagation(); prefs.opts[k] = !prefs.opts[k]; savePrefs(); refresh(); });
+      grid.append(b);
+    }
+    return grid;
+  }
+  function screenPlate() {
+    const p = plate("트릭컬 화면", "screens");
+    p.append(toggleGrid(SCREEN_FIELDS), hint("홈 로비에 둘 캐릭터 (SD가 있는 캐릭터만 나옵니다)"));
+    const list = el("div", "st-chips");
+    list.setAttribute("data-gfx-home-list", "");
+    p.append(list, hint("", "home"));
+    return p;
+  }
+  function paintHomeList(root) {
+    const w = world();
+    const cards = w ? w.cards.filter((c) => sdUrl(c.name)) : [];
+    const mine = (w && prefs.home[w.id]) || {};
+    for (const list of root.querySelectorAll("[data-gfx-home-list]")) {
+      const key = cards.map((c) => c.name + ":" + (mine[c.name] ? mine[c.name].on : true)).join("|");
+      if (list.getAttribute("data-key") === key) continue;
+      list.setAttribute("data-key", key);
+      list.textContent = "";
+      for (const c of cards) {
+        const b = chip(c.name, () => { setHome(c.name, { on: !(mine[c.name] ? mine[c.name].on : true) }); savePrefs(); refresh(); });
+        b.setAttribute("aria-pressed", String(mine[c.name] ? mine[c.name].on : true));
+        list.append(b);
+      }
+    }
+    const text = !cards.length ? "아직 SD가 있는 캐릭터가 없습니다. 아래 SD 캐릭터 만들기에서 먼저 그려 주세요."
+      : "누른 캐릭터가 홈에 섭니다. 홈 왼쪽 위 [✥ 배치]를 누르면 끌어서 옮기고, 휠이나 [크게]·[작게]로 크기를 바꿉니다.";
+    for (const n of root.querySelectorAll('[data-gfx-note="home"]')) n.textContent = text;
+  }
+
+  let connections = null; // [{id, name, model}]
+  async function loadConnections() {
+    if (connections) return;
+    connections = [];
+    try {
+      const list = await fetch("/api/connections", { credentials: "same-origin" }).then((r) => r.json());
+      connections = (Array.isArray(list) ? list : []).filter((c) => c && c.provider === "image_generation")
+        .map((c) => ({ id: String(c.id), name: String(c.name || c.model || c.id), model: String(c.model || "") }));
+    } catch {}
+    paintSettings(true);
+  }
+  function sdPlate() {
+    const p = plate("SD 캐릭터 만들기", "sd");
+    p.append(hint("세계의 캐릭터 외형으로 투명 배경 SD(치비) 이미지를 그려 스토리 · 전투 · 로딩 화면에 씁니다. 이미지는 갤러리에 저장되고, 그릴 때마다 이미지 연결의 사용량(NovelAI는 Anlas)이 듭니다."));
+    const conn = el("label", "gfx-field");
+    conn.append(el("span", "", "이미지 연결"));
+    const sel = el("select");
+    sel.setAttribute("data-gfx-conn", "");
+    on(sel, "change", () => { prefs.gen.connectionId = sel.value; savePrefs(); });
+    on(sel, "click", (e) => e.stopPropagation());
+    conn.append(sel);
+    const tpl = el("label", "gfx-field");
+    tpl.append(el("span", "", "프롬프트 ({appearance} = 캐릭터 외형, {name} = 이름)"));
+    const ta = el("textarea");
+    ta.setAttribute("data-gfx-tpl", "");
+    ta.value = prefs.gen.template;
+    on(ta, "change", () => { prefs.gen.template = ta.value.trim() || DEFAULT_GEN.template; savePrefs(); });
+    on(ta, "click", (e) => e.stopPropagation());
+    tpl.append(ta);
+    const neg = el("label", "gfx-field");
+    neg.append(el("span", "", "네거티브 프롬프트"));
+    const nta = el("textarea");
+    nta.setAttribute("data-gfx-neg", "");
+    nta.style.minHeight = "2.4em";
+    nta.value = prefs.gen.negative;
+    on(nta, "change", () => { prefs.gen.negative = nta.value.trim(); savePrefs(); });
+    on(nta, "click", (e) => e.stopPropagation());
+    neg.append(nta);
+    const sizes = el("div", "st-chips");
+    sizes.style.marginTop = ".7em";
+    for (const [s, label] of SIZES) sizes.append(chip(label, () => { prefs.gen.size = s; savePrefs(); paintSettings(); }, { "data-gfx-size": s }));
+    sizes.append(chip("프롬프트 기본값", () => { prefs.gen.template = DEFAULT_GEN.template; prefs.gen.negative = DEFAULT_GEN.negative; savePrefs(); paintSettings(true); }));
+    const all = el("div", "st-chips");
+    all.style.marginTop = ".7em";
+    all.append(chip("없는 캐릭터 전부 그리기", () => makeAll(), { "data-gfx-all": "" }));
+    const list = el("div", "gfx-sd-list");
+    list.setAttribute("data-gfx-sd-list", "");
+    p.append(conn, tpl, neg, sizes, all, hint("", "sd"), list);
+    return p;
+  }
+
+  function paintSdList(root) {
+    const w = world();
+    for (const list of root.querySelectorAll("[data-gfx-sd-list]")) {
+      const cards = w ? w.cards : [];
+      const keyNow = cards.map((c) => c.name + ":" + (w.sd[c.name]?.url || "") + ":" + (w.busy.has(c.name) ? 1 : 0)).join("|");
+      if (list.getAttribute("data-key") === keyNow) continue;
+      list.setAttribute("data-key", keyNow);
+      list.textContent = "";
+      for (const c of cards) {
+        const card = el("div", "gfx-sd-card");
+        if (w.busy.has(c.name)) card.setAttribute("data-busy", "");
+        const thumb = el("div", "gfx-sd-thumb");
+        const url = w.sd[c.name]?.url;
+        const img = el("img", url ? "" : "portrait");
+        img.alt = "";
+        if (url || c.portrait) img.src = url || c.portrait;
+        thumb.append(img);
+        const chips = el("div", "st-chips");
+        chips.append(chip(url ? "다시" : "그리기", () => makeSd(c)));
+        if (url) chips.append(chip("지우기", () => removeSd(c.name)));
+        card.append(thumb, el("b", "", c.name), chips);
+        list.append(card);
+      }
+    }
+  }
+
+  function paintSettings(full = false) {
+    const root = gameRoot();
+    if (!root) return;
+    for (const b of root.querySelectorAll("[data-gfx-preset]")) b.setAttribute("aria-pressed", String(b.getAttribute("data-gfx-preset") === prefs.preset));
+    for (const i of root.querySelectorAll("[data-gfx-color]")) { const v = prefs.colors[i.getAttribute("data-gfx-color")]; if (i.value.toUpperCase() !== v) i.value = v; }
+    for (const b of root.querySelectorAll("[data-gfx-opt]")) b.setAttribute("aria-pressed", String(!!prefs.opts[b.getAttribute("data-gfx-opt")]));
+    for (const b of root.querySelectorAll("[data-gfx-size]")) b.setAttribute("aria-pressed", String(b.getAttribute("data-gfx-size") === prefs.gen.size));
+    const fontText = fonts.status === "loading" ? "글꼴 목록을 확인하는 중입니다."
+      : fonts.status === "ok" ? "둥근 글꼴 Jua · Gowun Dodum을 쓰고 있습니다."
+      : fonts.status === "fetching" ? "Google Fonts에서 글꼴을 받는 중입니다…"
+      : fonts.status === "error" ? "글꼴 목록을 읽지 못했습니다. 지금은 맑은 고딕으로 보입니다."
+      : "둥근 글꼴(" + fonts.missing.join(" · ") + ")이 아직 없어서 맑은 고딕으로 보입니다. [글꼴 받기]를 누르면 Marinara 글꼴 보관함(data/fonts)에 내려받습니다.";
+    for (const n of root.querySelectorAll('[data-gfx-note="fonts"]')) n.textContent = fonts.note ? fonts.note + " " + fontText : fontText;
+    for (const b of root.querySelectorAll("[data-gfx-font-get]")) { b.style.display = fonts.status === "ok" ? "none" : ""; b.disabled = fonts.status === "fetching" || fonts.status === "loading"; }
+    for (const sel of root.querySelectorAll("[data-gfx-conn]")) {
+      const list = connections || [];
+      const fallback = host()?._run?.images?.connectionId || "";
+      const chosen = list.some((c) => c.id === prefs.gen.connectionId) ? prefs.gen.connectionId : list.some((c) => c.id === fallback) ? fallback : list[0]?.id || "";
+      if (full || sel.options.length !== list.length) {
+        sel.textContent = "";
+        for (const c of list) { const o = el("option", "", c.name + (c.id === fallback ? " (이 세계 기본)" : "")); o.value = c.id; sel.append(o); }
+      }
+      if (sel.value !== chosen) sel.value = chosen;
+    }
+    if (full) {
+      for (const t of root.querySelectorAll("[data-gfx-tpl]")) t.value = prefs.gen.template;
+      for (const t of root.querySelectorAll("[data-gfx-neg]")) t.value = prefs.gen.negative;
+    }
+    const w = world();
+    const sdText = !runId() ? "세계를 연 뒤에 그릴 수 있습니다."
+      : !w || w.state === "loading" || w.state === "new" ? "캐릭터 목록을 불러오는 중입니다."
+      : w.state === "error" ? w.note
+      : !(connections || []).length ? "이미지 생성 연결이 없습니다. Marinara 연결 설정에서 이미지 연결을 먼저 만들어 주세요."
+      : (w.note ? w.note + " " : "") + w.cards.length + "명 중 " + w.cards.filter((c) => w.sd[c.name]?.url).length + "명의 SD가 있습니다.";
+    for (const n of root.querySelectorAll('[data-gfx-note="sd"]')) n.textContent = sdText;
+    for (const b of root.querySelectorAll("[data-gfx-all]")) b.disabled = !w || w.state !== "ready" || w.busy.size > 0 || !(connections || []).length;
+    paintSdList(root);
+    paintHomeList(root);
+  }
+
+  /* ── Drawing SD sprites ── */
+  function dataUrlToBlob(dataUrl) {
+    const m = /^data:([^;,]+)(;base64)?,(.*)$/s.exec(dataUrl || "");
+    if (!m) throw Error("이미지 데이터가 아닙니다");
+    const bin = m[2] ? atob(m[3]) : decodeURIComponent(m[3]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: m[1] });
+  }
+  const extOf = (mime) => (/png/.test(mime) ? ".png" : /webp/.test(mime) ? ".webp" : /jpe?g/.test(mime) ? ".jpg" : ".png");
+  async function makeSd(card) {
+    const w = world();
+    if (!w || w.busy.has(card.name)) return;
+    const connId = gameRoot()?.querySelector("[data-gfx-conn]")?.value || prefs.gen.connectionId || host()?._run?.images?.connectionId || "";
+    const conn = (connections || []).find((c) => c.id === connId);
+    if (!conn) { w.note = "이미지 연결을 골라 주세요."; paintSettings(); return; }
+    w.busy.add(card.name);
+    w.note = "";
+    paintSettings();
+    try {
+      const u = await gf("/unit", { runId: w.id, unitId: card.id });
+      const appearance = String((u.unit && u.unit.appearance) || "").trim();
+      const prompt = prefs.gen.template.replace(/\{appearance\}/g, appearance || card.name).replace(/\{name\}/g, card.name).replace(/\s+/g, " ").trim();
+      const [width, height] = prefs.gen.size.split("x").map(Number);
+      const res = await fetch("/api/characters/avatar-generation", {
+        method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          connectionId: conn.id, name: "gfx-sd", appearance: prompt, purpose: "avatar", width, height,
+          promptOverrides: [{ id: "avatar:gfx-sd", prompt, negativePrompt: prefs.gen.negative }],
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !data.image) throw Error((data && data.error) || "HTTP " + res.status);
+      const blob = dataUrlToBlob(data.image);
+      const form = new FormData();
+      form.append("prompt", prompt);
+      form.append("provider", "image_generation");
+      form.append("model", conn.model || "unknown");
+      form.append("width", String(width));
+      form.append("height", String(height));
+      form.append("file", blob, "gfx-sd" + extOf(blob.type));
+      const up = await fetch("/api/global-gallery/upload", { method: "POST", credentials: "same-origin", body: form });
+      const saved = await up.json().catch(() => null);
+      if (!up.ok || !saved || !saved.url) throw Error((saved && saved.error) || "갤러리 저장 실패 (HTTP " + up.status + ")");
+      w.sd = { ...w.sd, [card.name]: { url: saved.url, at: Date.now() } };
+      if (!(await storePatch({ ["sd:" + w.id]: w.sd }))) w.note = "그림은 갤러리에 저장했지만 목록을 서버에 저장하지 못했습니다.";
+    } catch (e) {
+      w.note = card.name + " 그리기 실패: " + e.message;
+    } finally {
+      w.busy.delete(card.name);
+      refresh();
+    }
+  }
+  async function makeAll() {
+    const w = world();
+    if (!w) return;
+    for (const c of w.cards.filter((c) => !w.sd[c.name]?.url)) {
+      if (disposed || !current) break;
+      await makeSd(c);
+    }
+  }
+  async function removeSd(name) {
+    const w = world();
+    if (!w) return;
+    const next = { ...w.sd };
+    delete next[name];
+    w.sd = next;
+    await storePatch({ ["sd:" + w.id]: w.sd });
+    refresh();
+  }
+
+  // While one of ours is on, the game's own cards all read unpressed and ours reads pressed.
+  function paintCards(root) {
+    for (const list of root.querySelectorAll(".st-styles")) {
+      for (const b of list.querySelectorAll("[data-gfx-set]")) b.setAttribute("aria-pressed", String(b.getAttribute("data-gfx-set") === current));
+      if (current) for (const b of list.querySelectorAll("[data-style-set]")) if (b.getAttribute("aria-pressed") !== "false") b.setAttribute("aria-pressed", "false");
+    }
+  }
+  const boundLists = new WeakSet();
+  function mountSettings(root) {
+    for (const list of root.querySelectorAll(".st-styles")) {
+      if (!list.querySelector("[data-gfx-set]")) list.append(...STYLES.map(makeCard));
+      if (!boundLists.has(list)) {
+        boundLists.add(list);
+        // Any of the game's cards hands the look back to the game; the game then saves its pick as usual.
+        on(list, "click", (e) => {
+          if (disposed || !e.target.closest?.("[data-style-set]") || !current) return;
+          current = "";
+          writeStyle("");
+          refresh();
+        }, { capture: true });
+      }
+      const stylePlate = list.closest(".st-plate");
+      if (!stylePlate) continue;
+      const mine = [];
+      for (let n = stylePlate.nextElementSibling; n && n.hasAttribute("data-gfx-plate"); n = n.nextElementSibling) mine.push(n);
+      if (current && !mine.length) {
+        stylePlate.after(colorPlate(), screenPlate(), optionPlate(), sdPlate());
+        loadConnections();
+        loadWorld();
+        paintSettings(true);
+      } else if (!current && mine.length) for (const n of mine) n.remove();
+    }
+    paintCards(root);
+  }
+
+  /* ═════════════ Following the game ═════════════ */
+  let observed = null, observer = null, scheduled = false, lastRun = "";
+  function refresh() {
+    if (disposed) return;
+    apply();
+    const root = gameRoot();
+    if (!root) return;
+    const id = runId();
+    if (id !== lastRun) { lastRun = id; if (current) loadWorld(); }
+    mountSettings(root);
+    paintSettings();
+    paintSprites(root);
+    ensureLoadMounted();
+  }
+  function schedule() {
+    if (disposed || scheduled) return;
+    scheduled = true;
+    setTimeout(() => { scheduled = false; refresh(); }, 40);
+  }
+  function watch() {
+    if (disposed) return;
+    const root = gameRoot();
+    if (root !== observed) {
+      observer?.disconnect();
+      observed = root;
+      if (root) {
+        observer = new MutationObserver((records) => {
+          // The loading screen goes back at once (before paint); the rest can wait a frame or two.
+          ensureLoadMounted();
+          for (const r of records) {
+            const t = r.target;
+            if (t.nodeType === 1 && t.closest && t.closest("[data-gfx-ui], [data-gfx-plate], .gfx-sd-list, .gfx-lobby, .gfx-team, .gfx-ev-mascot, .gfx-foe")) continue;
+            return schedule();
+          }
+        });
+        observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-open", "data-front", "src", "class", "hidden"] });
+      }
+    }
+    refresh();
+  }
+  const interval = setInterval(watch, 1500);
+  const loadTick = setInterval(tickLoading, 120);
+  watch();
+  loadFonts();
+  // Server copy of the colours and options wins over this browser's cache.
+  storeGet().then((v) => { if (!disposed && v.prefs) { prefs = normalizePrefs(v.prefs); try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {} refresh(); paintSettings(true); } });
+  // Another tab of the same browser changed the style.
+  on(window, "storage", (e) => { if (e.key === STORE) { current = readStyle(); refresh(); } });
+
+  window[KEY] = () => {
+    if (disposed) return;
+    disposed = true;
+    life.abort();
+    clearInterval(interval);
+    clearInterval(loadTick);
+    clearInterval(chatter);
+    observer?.disconnect();
+    const h = host(), root = h?.shadowRoot;
+    for (const a of [ATTR, "data-gfx-box", "data-gfx-sticker", "data-gfx-motion", "data-gfx-field", "data-gfx-team", "data-gfx-hideplate", "data-gfx-attend", "data-gfx-phase", "data-gfx-lobby"]) h?.removeAttribute(a);
+    if (root) root.adoptedStyleSheets = root.adoptedStyleSheets.filter((s) => s !== sheet && s !== varSheet);
+    for (const n of root?.querySelectorAll("[data-gfx-set], [data-gfx-plate], [data-gfx-ui], img.gfx-sd, .gfx-forge-mascot, .gfx-foe, .gfx-team, .gfx-lobby, .gfx-ev-mascot, .gfx-tiles") || []) n.remove();
+    for (const n of root?.querySelectorAll("[data-gfx-sd], [data-gfx-foe]") || []) { n.removeAttribute("data-gfx-sd"); n.removeAttribute("data-gfx-foe"); }
+    if (window[KEY]) delete window[KEY];
+  };
+})();
