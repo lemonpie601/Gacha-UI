@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.23 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.24 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -486,12 +486,13 @@ ${T} .vn-plate[data-gfx-sd] { opacity: 0 !important; }
 .gfx-vn-placeholder svg { width: 85%; max-height: 85%; }
 .gfx-vn-placeholder > span { padding: .3em .8em; border: 2px solid var(--gfx-line); border-radius: 999px; background: var(--gfx-card); }
 .vn[data-cg] .gfx-vn-cast { display: none; }
-.vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .gfx-vn-cast { display: none; }
+.vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .gfx-vn-cast { filter: brightness(.88) saturate(.9); }
 .vn .vn-choices, .vn .vn-choice, .vn [data-choice] { position: relative; z-index: 8; }
 /* The game's cleared-chapter green is a fixed dark colour; on a dark sheet it takes a light one. */
 ${T} .ch-card.cleared .ch-index, ${T} .diffs span.on { color: var(--gfx-jade-text, #1C6B54) !important; }
 /* Gacha Choice's shipped runtime uses gch-menu / gch-opt. */
-${T} .vn:has(.gch-menu:not([hidden])) .gfx-vn-cast { display: none !important; }
+${T} .vn:has(.gch-menu:not([hidden])) .gfx-vn-cast { filter: brightness(.88) saturate(.9); }
+${T} .vn:has(.gch-menu:not([hidden]), .vn-choices:not([hidden])) .vn-plate:not([data-gfx-sd]) { visibility: hidden !important; }
 ${T} .vn .gch-menu { position: relative; z-index: 12; align-items: stretch !important; max-height: 38cqh;
   overflow-y: auto; overscroll-behavior: contain; gap: .55em !important; padding: .35em .4em .65em; margin-bottom: .3em !important;
   /* A centred column of pills instead of bars across the whole scene. */
@@ -1576,7 +1577,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     const replaced = new Set(snapshot.slots.map((s) => s.plate).filter(Boolean));
     // Only portraits represented by the reconciled current cast step aside. CG and closed slots stay untouched.
     for (const plate of plates) {
-      const has = on && prefs.opts.storySd && snapshot.mode === "dialogue" && replaced.has(plate);
+      const has = on && prefs.opts.storySd && snapshot.mode !== "cg" && replaced.has(plate);
       plate.querySelector(":scope > img.gfx-sd")?.remove();
       if (has !== plate.hasAttribute("data-gfx-sd")) { if (has) plate.setAttribute("data-gfx-sd", ""); else plate.removeAttribute("data-gfx-sd"); }
     }
@@ -1813,7 +1814,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     const h = host(), cast = Array.isArray(h?._beatCast) ? h._beatCast : [];
     { const w = world(); if (w && w.state === "ready" && addExtras(w, cast.filter((c) => !c.prota))) setTimeout(() => paintSettings(), 0); }
     const segments = Array.isArray(h?._beat) ? h._beat : [];
-    if (mode === "dialogue" && segments.length && cast.length) {
+    if (mode !== "cg" && segments.length && cast.length) {
       const count = (vn.querySelector(".vn-count")?.textContent || "").match(/\d+/);
       const at = Math.max(0, Number(count?.[0] || 1) - 1);
       const actors = storyCastAt(segments, at, cast, castMax());
@@ -1825,7 +1826,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
         if (portrait) world()?.byPortrait.set(pathOf(portrait), actor.name);
         slots.push({ id: actor.name, name: actor.name, portrait, plate: open.find((p) => nameFromImg(activePlateImage(p)) === actor.name) || null });
       }
-    } else if (mode === "dialogue") {
+    } else if (mode !== "cg") {
       for (const [i, plate] of open.entries()) {
         const image = activePlateImage(plate);
         const portrait = image?.getAttribute("src") || "";
@@ -1895,7 +1896,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     // it in the stacking order), so their legs pass behind it the way Trickcal stages its characters.
     const stage = vn;
     let layer = stage && stage.querySelector(":scope > .gfx-vn-cast");
-    if (!vn || !enabled || snapshot.mode !== "dialogue" || !snapshot.slots.length) {
+    if (!vn || !enabled || snapshot.mode === "cg" || !snapshot.slots.length) {
       layer?.remove();
       vnCast.renderedKey = "";
       return;
@@ -1926,7 +1927,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       layer.replaceChildren();
       layer.setAttribute("data-scene", snapshot.sceneKey);
     }
-    const key = snapshot.sceneKey + "|" + snapshot.mode + "|" + speaker + "|" + slots.map((s) => [s.id, s.name, s.portrait, sdUrl(s.name, s.portrait), sdEntry(s.name).tall || 1, sdEntry(s.name).ally ? 1 : 0].join("~")).join(";");
+    const key = snapshot.sceneKey + "|" + speaker + "|" + slots.map((s) => [s.id, s.name, s.portrait, sdUrl(s.name, s.portrait), sdEntry(s.name).tall || 1, sdEntry(s.name).ally ? 1 : 0].join("~")).join(";");
     if (layer.getAttribute("data-key") === key) return;
     layer.setAttribute("data-key", key);
     vnCast.renderedKey = key;
