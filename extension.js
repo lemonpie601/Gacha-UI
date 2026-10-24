@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.32 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.33 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -775,7 +775,7 @@ ${TM} .slot[data-gfx-sd] { overflow: visible !important; }
 ${TM} .slot[data-gfx-sd] .slot-art { background: radial-gradient(70% 40% at 50% 92%, color-mix(in srgb, var(--gfx-line) 30%, transparent), transparent 70%),
   linear-gradient(170deg, var(--gfx-sky1), var(--gfx-sky2)) !important; }
 ${TM} .slot[data-gfx-sd] .slot-art img { opacity: 0 !important; }
-${TM} .slot[data-gfx-sd] > img.gfx-sd { position: absolute; left: -10%; width: 120%; bottom: 14%; height: calc(108% * var(--hf, 1)); object-fit: contain; object-position: 50% 100%;
+${TM} .slot[data-gfx-sd] > img.gfx-sd { position: absolute; left: 0; width: 100%; bottom: 14%; height: calc(82% * var(--hf, 1)); object-fit: contain; object-position: 50% 100%;
   max-width: none !important; max-height: none !important; filter: ${STICKER}; pointer-events: none; z-index: 2; animation: gfx-float 2.6s ease-in-out infinite; }
 ${TM} .slot.filled:nth-child(2) > img.gfx-sd { animation-delay: -0.9s; } ${TM} .slot.filled:nth-child(3) > img.gfx-sd { animation-delay: -1.7s; }
 @keyframes gfx-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6%); } }
@@ -991,6 +991,12 @@ ${T} [data-screen="banner"] .bcard .bt-id :is(b, i) { line-height: 1.35 !importa
 ${T} [data-screen="reveal"] .rv-front .u { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; clip-path: none !important; }
 /* Formation slots: the cream name plate follows the card's rounded bottom (its square corners poked out). */
 ${T} .slot .slot-meta { border-bottom-left-radius: inherit; border-bottom-right-radius: inherit; padding-bottom: .3em !important; }
+/* Breathing room. The top bar's slot was exactly as tall as the back button and cut its outline off at the top
+ * and bottom; card lists scrolled flush to their edge and cut the cards' borders and shadows. */
+${T} .gf-bar-slot { overflow: clip !important; overflow-clip-margin: .5em; }
+${T} :is(.grid-scroll, .rail-scroll) { padding: .55em .5em .75em !important; box-sizing: border-box; }
+${T} [data-screen="banner"] .rail-scroll { display: flex; flex-direction: column; gap: .6em; }
+${T} .slot { overflow: hidden; }
 /* No scrollbars anywhere under 말랑: lists still scroll with the wheel, a finger or a drag. */
 ${T} .gf-arena, ${T} .gf-arena * { scrollbar-width: none; }
 ${T} .gf-arena::-webkit-scrollbar, ${T} .gf-arena *::-webkit-scrollbar { display: none; }
