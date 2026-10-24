@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.33 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.34 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -997,6 +997,9 @@ ${T} .gf-bar-slot { overflow: clip !important; overflow-clip-margin: .5em; }
 ${T} :is(.grid-scroll, .rail-scroll) { padding: .55em .5em .75em !important; box-sizing: border-box; }
 ${T} [data-screen="banner"] .rail-scroll { display: flex; flex-direction: column; gap: .6em; }
 ${T} .slot { overflow: hidden; }
+/* Formation: room between a row label and its slots (the slots' coloured top edge ran into the label). */
+${T} .board .slots { padding-top: .7em !important; }
+${T} .board .row-lab { margin-bottom: .15em !important; }
 /* No scrollbars anywhere under 말랑: lists still scroll with the wheel, a finger or a drag. */
 ${T} .gf-arena, ${T} .gf-arena * { scrollbar-width: none; }
 ${T} .gf-arena::-webkit-scrollbar, ${T} .gf-arena *::-webkit-scrollbar { display: none; }
