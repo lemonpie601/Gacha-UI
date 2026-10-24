@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.6.5 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.6.6 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -894,6 +894,7 @@ img.baked { filter: none !important; }
       sil.width = cw; sil.height = ch;
       const sx = sil.getContext("2d");
       sx.drawImage(im, pad, pad, W, Hh);
+      const rawAlpha = sx.getImageData(0, 0, cw, ch);
       sx.globalCompositeOperation = "source-in";
       sx.fillStyle = "#fff";
       sx.fillRect(0, 0, cw, ch);
@@ -910,13 +911,24 @@ img.baked { filter: none !important; }
       ox.drawImage(im, pad, pad, W, Hh);
       // Trim the empty margin, so the feet are the picture's bottom edge; keep how much of the drawn picture
       // the character fills (hf), so a small character stays small instead of being blown up to the box.
-      const px0 = ox.getImageData(0, 0, cw, ch).data;
-      let x0 = cw, y0 = ch, x1 = -1, y1 = -1;
+      // Measured on the raw art (the silhouette before its outline), counting only clearly drawn pixels and
+      // only rows and columns with enough of them: generated art leaves faint specks (sparkles, dust) near the
+      // edges, and those used to hold the trim at the very bottom, so small characters still floated.
+      const sx0 = rawAlpha.data;
+      const rowN = new Uint32Array(ch), colN = new Uint32Array(cw);
       for (let y = 0; y < ch; y++) {
         const row = y * cw * 4;
-        for (let x = 0; x < cw; x++) if (px0[row + x * 4 + 3] > 10) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        for (let x = 0; x < cw; x++) if (sx0[row + x * 4 + 3] > 128) { rowN[y]++; colN[x]++; }
       }
-      if (x1 < 0) { x0 = 0; y0 = 0; x1 = cw - 1; y1 = ch - 1; }
+      const minRow = Math.max(3, Math.round(W * 0.008)), minCol = Math.max(3, Math.round(Hh * 0.004));
+      let y0 = 0, y1 = ch - 1, x0 = 0, x1 = cw - 1;
+      while (y0 < ch - 1 && rowN[y0] < minRow) y0++;
+      while (y1 > y0 && rowN[y1] < minRow) y1--;
+      while (x0 < cw - 1 && colN[x0] < minCol) x0++;
+      while (x1 > x0 && colN[x1] < minCol) x1--;
+      // Room for the outline all round, and for the soft shadow under the feet.
+      const m = Math.ceil(r * 1.5);
+      x0 = Math.max(0, x0 - m); x1 = Math.min(cw - 1, x1 + m); y0 = Math.max(0, y0 - m); y1 = Math.min(ch - 1, y1 + Math.ceil(r * 3));
       const kw = x1 - x0 + 1, kh = y1 - y0 + 1;
       const crop = document.createElement("canvas");
       crop.width = kw; crop.height = kh;
@@ -1179,7 +1191,7 @@ img.baked { filter: none !important; }
   const linesFor = (name) => { const l = sdEntry(name).lines; return Array.isArray(l) && l.filter(Boolean).length ? l.filter(Boolean) : LOBBY_LINES; };
   const pinchFor = (name) => sdEntry(name).pinch || pick(PINCH_LINES);
   const cheeksOf = (name) => { const c = sdEntry(name).cheeks; return Array.isArray(c) && c.length ? c : null; };
-  const cheekR = (name) => { const r = Number(sdEntry(name).cheekR); return r > 0 ? r : 0.085; };
+  const cheekR = (name) => { const r = Number(sdEntry(name).cheekR); return r > 0 ? r : 0.06; };
   async function saveSdEntry(name, patch) {
     const w = world();
     if (!w) return;
@@ -1211,7 +1223,7 @@ img.baked { filter: none !important; }
       const fy = (e.clientY - b0.top) / b0.height;
       if (!b0.height || fy < 0.08 || fy > 0.55) return false;
       cheeks = [{ x: 0.5, y: fy, free: true }];
-      rFrac = Math.max(rFrac, 0.1);
+      rFrac = Math.max(rFrac, 0.06);
       img.dataset.freePinch = "1";
     } else delete img.dataset.freePinch;
     const mx = Number(img.dataset.mx), my = Number(img.dataset.my), ox = Number(img.dataset.ox) || 0, oy = Number(img.dataset.oy) || 0;
@@ -2033,7 +2045,7 @@ img.baked { filter: none !important; }
       side.append(el("b", "", c.name));
       side.append(hint("그림에서 볼을 누르면 볼 위치(최대 2곳)가 정해집니다. 정한 곳을 누른 채 끌면 미리 당겨 볼 수 있습니다.", ""));
       const size = el("div", "st-chips");
-      for (const [r, label] of [[0.06, "볼 작게"], [0.085, "보통"], [0.115, "볼 크게"]]) {
+      for (const [r, label] of [[0.04, "볼 작게"], [0.06, "보통"], [0.08, "볼 크게"]]) {
         const b = chip(label, () => saveSdEntry(c.name, { cheekR: r }).then(() => paintSettings()));
         b.setAttribute("aria-pressed", String(Math.abs(cheekR(c.name) - r) < 0.001));
         size.append(b);
