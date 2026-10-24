@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.28 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.29 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -975,6 +975,10 @@ ${T} button.act.start > small { color: color-mix(in srgb, var(--gfx-line) 72%, t
 .gfx-sd-pick img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; display: block; }
 .gfx-sd-pick .x { position: absolute; top: -.5em; right: -.5em; width: 1.4em; height: 1.4em; display: grid; place-items: center; border-radius: 50%;
   background: var(--gfx-card, #FFF8E7); border: 2px solid var(--gfx-line, #6B4528); font-size: .8em; line-height: 1; }
+/* Small text lines that the rounder font made too tall for their row. */
+${T} .slot .slot-role, ${T} .slot .slot-name { line-height: 1.35 !important; overflow: visible !important; padding-bottom: .1em; }
+${T} .slot .slot-meta { padding-bottom: .45em !important; }
+${T} [data-screen="banner"] .bcard .bt-id :is(b, i) { line-height: 1.35 !important; overflow: visible !important; padding-bottom: .08em; }
 /* No scrollbars anywhere under 말랑: lists still scroll with the wheel, a finger or a drag. */
 ${T} .gf-arena, ${T} .gf-arena * { scrollbar-width: none; }
 ${T} .gf-arena::-webkit-scrollbar, ${T} .gf-arena *::-webkit-scrollbar { display: none; }
@@ -1089,7 +1093,7 @@ ${T} [data-screen="events"] :is(.pv-reroll, .sv-ms-btn) { font-size: calc(var(--
  * the middle, the back glows in its rarity before turning, and the turn bounces. */
 ${T} [data-screen="reveal"] .rv-card { border: 0 !important; overflow: visible !important; box-shadow: none !important; }
 ${T} [data-screen="reveal"] .rv-face { border: 3px solid var(--gfx-line) !important; border-radius: 18px !important; clip-path: none !important; overflow: hidden; box-shadow: 0 .3em 0 var(--gfx-line); }
-${T} [data-screen="reveal"] .rv-facedown { background: radial-gradient(color-mix(in srgb, #fff 55%, transparent) 14%, transparent 15%) 0 0 / 1.6em 1.6em,
+${T} [data-screen="reveal"] .rv-facedown { background: radial-gradient(circle at 50% 38%, color-mix(in srgb, #fff 55%, transparent), transparent 60%), 
   linear-gradient(160deg, var(--gfx-sky1), var(--gfx-sky2)) !important; display: grid; place-items: center; }
 ${T} [data-screen="reveal"] .rv-facedown span { width: 46% !important; height: auto !important; aspect-ratio: 1; clip-path: none !important; border: 3px solid var(--gfx-line) !important; border-radius: 50%;
   background: var(--gfx-card) radial-gradient(circle, var(--gfx-pick) 0 30%, transparent 31%); }
@@ -1110,7 +1114,7 @@ ${T} [data-screen="reveal"] .rv-card.r5.revealed .rv-front::after { content: "";
 ${T} [data-screen="reveal"] .rv-card.r5.revealed .rv-face.rv-front { border-color: #E0A100 !important; box-shadow: 0 .3em 0 var(--gfx-line), 0 0 1.4em #FFD34E; }
 ${T} [data-screen="reveal"] .rv-card.r4.revealed .rv-face.rv-front { border-color: #8E6BD6 !important; box-shadow: 0 .3em 0 var(--gfx-line), 0 0 1em #B48CF0; }
 /* Material cards (no portrait): a light sky tile with dots instead of the dark slate one. */
-${T} .u-art.mat { background: radial-gradient(color-mix(in srgb, #fff 60%, transparent) 14%, transparent 15%) 0 0 / 1.4em 1.4em, linear-gradient(160deg, var(--gfx-sky1), var(--gfx-sky2)) !important; }
+${T} .u-art.mat { background: radial-gradient(circle at 50% 35%, color-mix(in srgb, #fff 55%, transparent), transparent 62%), linear-gradient(160deg, var(--gfx-sky1), var(--gfx-sky2)) !important; }
 ${T} .u-art.mat svg { filter: drop-shadow(0 .1em 0 color-mix(in srgb, var(--gfx-line) 40%, transparent)); }
 /* 5★ spotlight: the character takes the whole screen for a moment. */
 .gfx-spot { position: absolute; inset: 0; z-index: 70; display: grid; place-items: center; overflow: hidden; cursor: pointer; container-type: size;
@@ -1136,10 +1140,10 @@ ${T} .u-art.mat svg { filter: drop-shadow(0 .1em 0 color-mix(in srgb, var(--gfx-
 @keyframes gfx-wipe { 0% { opacity: 0; } 22% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
 /* Summon capsule. The game's own charge ring is hidden while ours plays. */
 ${T} [data-screen="reveal"]:has(.gfx-summon) .rv-sigil { visibility: hidden; }
-${T} [data-screen="reveal"] .rv-back { background: radial-gradient(color-mix(in srgb, #fff 45%, transparent) 18%, transparent 19%) 0 0 / 2.4em 2.4em,
+${T} [data-screen="reveal"] .rv-back { background: radial-gradient(circle at 50% 42%, color-mix(in srgb, #fff 60%, transparent), transparent 55%), 
   linear-gradient(160deg, var(--gfx-sky1), var(--gfx-ink) 50%, var(--gfx-sky2)) !important; }
 .gfx-summon { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; overflow: hidden; cursor: pointer; container-type: size;
-  background: radial-gradient(color-mix(in srgb, #fff 45%, transparent) 18%, transparent 19%) 0 0 / 2.4em 2.4em,
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, #fff 55%, transparent), transparent 55%), 
     radial-gradient(circle at 50% 55%, color-mix(in srgb, var(--cap) 35%, var(--gfx-card, #FFF4D9)), var(--gfx-sky2, #BDE9DA));
   animation: gfx-load-in 200ms ease both; }
 .gfx-summon[data-out] { animation: gfx-load-out 300ms ease forwards; pointer-events: none; }
