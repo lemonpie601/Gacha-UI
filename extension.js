@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.31 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.32 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -348,7 +348,9 @@ ${T} .gf-bar :is(.icon-button, .currency) { box-sizing: border-box !important; m
  * drop ran into the bar's bottom line and their lower edge looked cut off. */
 ${T} .gf-bar :is(.icon-button, .currency, .back, .sv-q), ${T} :is(.head-id, .gf-bar) > :is(.back, .sv-q) {
   box-shadow: inset 0 -.22em 0 color-mix(in srgb, var(--gfx-line) 70%, transparent), 0 .08em 0 color-mix(in srgb, var(--gfx-line) 25%, transparent) !important; }
-${T} .gf-bar :is(.icon-button, .currency, .back, .sv-q):active { box-shadow: inset 0 -.06em 0 color-mix(in srgb, var(--gfx-line) 70%, transparent) !important; translate: 0 .06em; }
+${T} .gf-bar :is(.icon-button, .currency, .back, .sv-q):active, ${T} :is(.gf-bar, .head-id) button:active:not(:disabled) {
+  transform: none !important; translate: none !important; filter: brightness(.94);
+  box-shadow: inset 0 -.06em 0 color-mix(in srgb, var(--gfx-line) 70%, transparent), inset 0 .12em 0 color-mix(in srgb, var(--gfx-line) 18%, transparent) !important; }
 /* Chunky outlined pieces: buttons press down onto a hard outline-coloured shadow. */
 ${T} .currency, ${T} .icon-button, ${T} .hm-chat, ${T} .hm-side, ${T} .hm-slot, ${T} .sv-q,
 ${T} .st-sect, ${T} .st-chip, ${T} .back, ${T} button.act, ${T} .diff-pill, ${T} .btn {
@@ -984,6 +986,11 @@ ${T} button.act.start > small { color: color-mix(in srgb, var(--gfx-line) 72%, t
 ${T} .slot .slot-role, ${T} .slot .slot-name { line-height: 1.35 !important; overflow: visible !important; padding-bottom: .1em; }
 ${T} .slot .slot-meta { padding-bottom: .45em !important; }
 ${T} [data-screen="banner"] .bcard .bt-id :is(b, i) { line-height: 1.35 !important; overflow: visible !important; padding-bottom: .08em; }
+/* Summon cards: the frame is the face's; the game's card inside drew a second border and corner of its own,
+ * slightly off from the frame. */
+${T} [data-screen="reveal"] .rv-front .u { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; clip-path: none !important; }
+/* Formation slots: the cream name plate follows the card's rounded bottom (its square corners poked out). */
+${T} .slot .slot-meta { border-bottom-left-radius: inherit; border-bottom-right-radius: inherit; padding-bottom: .3em !important; }
 /* No scrollbars anywhere under 말랑: lists still scroll with the wheel, a finger or a drag. */
 ${T} .gf-arena, ${T} .gf-arena * { scrollbar-width: none; }
 ${T} .gf-arena::-webkit-scrollbar, ${T} .gf-arena *::-webkit-scrollbar { display: none; }
@@ -1030,7 +1037,9 @@ ${T} :is(.vn-dock, .vn-bar) { overflow-x: clip !important; }
 
 /* Summon screen: cards, banner and pull controls use the same soft outlined language. */
 ${T} [data-screen="banner"] .bcard { border: 3px solid var(--gfx-line) !important; border-radius: 20px !important; box-shadow: 0 .28em 0 var(--gfx-line) !important; overflow: hidden; }
-${T} [data-screen="banner"] .bcard[aria-pressed="true"] { outline: .35em solid color-mix(in srgb, var(--gfx-pick) 75%, transparent); translate: 0 -.15em; }
+${T} [data-screen="banner"] .bcard[aria-pressed="true"] { outline: .3em solid color-mix(in srgb, var(--gfx-pick) 75%, transparent); outline-offset: -.05em; }
+/* The banner list cut off the first card's top (its outline and lift reached above the list's edge). */
+${T} [data-screen="banner"] .rail-scroll { padding: .45em .45em .6em !important; box-sizing: border-box; }
 ${T} [data-screen="banner"] .show { border: 3px solid var(--gfx-line); border-radius: 26px; overflow: hidden; box-shadow: 0 .42em 0 var(--gfx-line); }
 ${T} [data-screen="banner"] .chip { border-radius: 999px !important; background: color-mix(in srgb, var(--gfx-card) 92%, transparent) !important; border: 2px solid var(--gfx-line) !important; }
 /* The banner's info block and its pity box are tall: rounded cards, not pills (a pill cut their text). */
