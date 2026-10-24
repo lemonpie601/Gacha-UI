@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.8 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.9 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -865,6 +865,9 @@ img.baked { filter: none !important; }
   border: 2px solid var(--steel-dark); border-radius: 10px; padding: 0.45em 0.6em; }
 .gfx-field input { font: inherit; font-size: var(--t-xs, 12px); color: var(--text); background: var(--surface, #fff);
   border: 2px solid var(--steel-dark); border-radius: 10px; padding: 0.4em 0.6em; }
+/* The 말랑 tab's panel: its plates take the place of the game's while it is open. */
+.st-pane[data-gfx-tab-open] > :not(.gfx-view) { display: none !important; }
+.gfx-view { display: contents; }
 .gfx-settings-nav { display: flex; gap: .5em; position: sticky; top: 0; z-index: 20; padding: .45em; margin: .2em 0 .8em; background: color-mix(in srgb, var(--surface, #fff) 94%, transparent); border: 2px solid var(--ink-3); border-radius: 14px; }
 .gfx-settings-nav button { flex: 1 1 0; }
 [data-gfx-settings-view="ui"] [data-gfx-section="sd"], [data-gfx-settings-view="sd"] [data-gfx-section="ui"] { display: none !important; }
@@ -3183,21 +3186,72 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
           refresh();
         }, { capture: true });
       }
-      const stylePlate = list.closest(".st-plate");
-      if (!stylePlate) continue;
-      const container = stylePlate.parentElement;
-      if (container && current) container.setAttribute("data-gfx-settings-view", settingsView);
-      else container?.removeAttribute("data-gfx-settings-view");
-      const mine = [];
-      for (let n = stylePlate.nextElementSibling; n && n.hasAttribute("data-gfx-plate"); n = n.nextElementSibling) mine.push(n);
-      if (current && !mine.length) {
-        stylePlate.after(settingsNav(container), colorPlate(), screenPlate(), optionPlate(), sdPlate());
+    }
+    mountTab(root);
+    paintCards(root);
+  }
+  /* 말랑's own settings live in a tab of their own in the settings rail (next to 화면), not inside 화면: the
+   * tab opens a panel with the colours, screens, options and the SD list, and hides the game's panel while
+   * open. Any of the game's tabs closes it again. The style itself is still picked in 화면 → UI 스타일. */
+  let malangOpen = false;
+  const boundRails = new WeakSet();
+  function mountTab(root) {
+    const rail = root.querySelector(".st-rail"), pane = root.querySelector(".st-pane");
+    if (!rail || !pane) { malangOpen = false; return; }
+    let tab = rail.querySelector(":scope > [data-gfx-tab]");
+    if (!current) {
+      tab?.remove();
+      malangOpen = false;
+    } else if (!tab) {
+      tab = el("button", "st-sect");
+      tab.type = "button";
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("data-gfx-tab", "");
+      tab.setAttribute("data-gfx-ui", "");
+      tab.append(el("span", "k", "말랑"), el("span", "n", "UI · SD"));
+      on(tab, "click", (e) => { e.stopPropagation(); malangOpen = true; const p = gameRoot()?.querySelector(".st-pane"); if (p) p.scrollTop = 0; refresh(); });
+      const visual = rail.querySelector('[data-view="visual"]');
+      if (visual) visual.after(tab); else rail.append(tab);
+    }
+    if (!boundRails.has(rail)) {
+      boundRails.add(rail);
+      on(rail, "click", (e) => {
+        const sect = e.target.closest?.(".st-sect");
+        if (!sect || sect.hasAttribute("data-gfx-tab") || !malangOpen) return;
+        malangOpen = false;
+        mountTab(gameRoot());
+      }, { capture: true });
+    }
+    let view = pane.querySelector(":scope > .gfx-view");
+    if (current && malangOpen) {
+      if (!view) {
+        view = el("div", "gfx-view");
+        view.setAttribute("data-gfx-ui", "");
+        view.setAttribute("data-gfx-settings-view", settingsView);
+        view.append(settingsNav(view), colorPlate(), screenPlate(), optionPlate(), sdPlate());
+        pane.append(view);
         loadConnections();
         loadWorld();
         paintSettings(true);
-      } else if (!current && mine.length) for (const n of mine) n.remove();
+      }
+      if (!pane.hasAttribute("data-gfx-tab-open")) pane.setAttribute("data-gfx-tab-open", "");
+      // The header names the open tab.
+      const title = root.querySelector(".head-id h2");
+      if (title && title.textContent !== "말랑 설정") { title.setAttribute("data-gfx-title", title.textContent); title.textContent = "말랑 설정"; }
+      for (const s of rail.querySelectorAll(":scope > .st-sect")) { const want = String(s === tab); if (s.getAttribute("aria-selected") !== want) s.setAttribute("aria-selected", want); }
+    } else {
+      const wasOpen = !!view || pane.hasAttribute("data-gfx-tab-open");
+      const title = root.querySelector(".head-id h2[data-gfx-title]");
+      if (title) { if (title.textContent === "말랑 설정") title.textContent = title.getAttribute("data-gfx-title"); title.removeAttribute("data-gfx-title"); }
+      view?.remove();
+      if (pane.hasAttribute("data-gfx-tab-open")) pane.removeAttribute("data-gfx-tab-open");
+      if (tab && tab.getAttribute("aria-selected") !== "false") tab.setAttribute("aria-selected", "false");
+      // Hand the highlight back to the game's tab for the panel now showing (it does not redraw for a tab it
+      // already had open).
+      if (wasOpen && !rail.querySelector(':scope > .st-sect[aria-selected="true"]')) {
+        rail.querySelector(':scope > .st-sect[data-view="' + (pane.getAttribute("data-view-body") || "") + '"]')?.setAttribute("aria-selected", "true");
+      }
     }
-    paintCards(root);
   }
 
   /* ═════════════ Following the game ═════════════ */
@@ -3209,7 +3263,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     if (!root) return;
     const id = runId();
     if (id !== lastRun) { lastRun = id; roam.clear(); if (current) loadWorld(); }
-    if (root.querySelector(".st-styles, [data-gfx-plate]")) {
+    if (root.querySelector(".st-rail, .st-styles, [data-gfx-plate]")) {
       mountSettings(root);
       paintSettings();
     }
