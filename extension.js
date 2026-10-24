@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.6.0 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.6.1 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -118,7 +118,8 @@
       negative: typeof g.negative === "string" ? g.negative : DEFAULT_GEN.negative,
       size: SIZES.some(([s]) => s === g.size) ? g.size : DEFAULT_GEN.size,
     };
-    return { colors, preset: typeof p.preset === "string" ? p.preset : "", opts, gen, home };
+    const lobbyScale = typeof p.lobbyScale === "number" && Number.isFinite(p.lobbyScale) ? Math.min(2, Math.max(0.5, p.lobbyScale)) : 1;
+    return { colors, preset: typeof p.preset === "string" ? p.preset : "", opts, gen, home, lobbyScale };
   }
   let prefs = normalizePrefs((() => { try { return JSON.parse(localStorage.getItem(CACHE) || "null"); } catch { return null; } })());
 
@@ -632,7 +633,12 @@ ${LB} .hm-slot-bg { opacity: 0.85; }
 .gfx-lobby-tools button { font-family: "Jua", "Malgun Gothic", sans-serif; font-size: calc(var(--f, 10px) * 0.95); padding: 0.3em 0.9em; cursor: pointer;
   color: var(--gfx-text); background: var(--gfx-card); border: 2px solid var(--gfx-line); border-radius: 999px; box-shadow: 0 0.18em 0 var(--gfx-line); }
 .gfx-lobby-tools button[data-main] { background: var(--gfx-accent); color: #fff; }
-.gfx-lobby:not([data-edit]) .gfx-lobby-tools { left: 13%; top: 3%; translate: 0 0; opacity: 0.9; }
+.gfx-lobby:not([data-edit]) .gfx-lobby-tools { left: 1.6%; top: 10.5%; translate: 0 0; opacity: 0.95; }
+.gfx-lobby[data-edit] .gfx-lobby-tools { flex-wrap: wrap; justify-content: center; max-width: 70%; padding: 0.5em 0.7em;
+  background: color-mix(in srgb, var(--gfx-card) 92%, transparent); border: 2.5px solid var(--gfx-line); border-radius: 16px; box-shadow: 0 0.2em 0 var(--gfx-line); }
+.gfx-lobby-cast { flex-basis: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4em; }
+.gfx-lobby-cast button[aria-pressed="false"] { opacity: 0.55; background: var(--gfx-ink); }
+.gfx-lobby-cast button[aria-pressed="true"] { background: var(--gfx-pick); }
 .gfx-lobby:not([data-edit]) .gfx-lobby-tools button:not([data-edit-toggle]) { display: none; }
 
 /* ── 7-day attendance ───────────────────────────────────────────────────────────────────────────── */
@@ -1355,7 +1361,7 @@ img.baked { filter: none !important; }
       // Two rows: the front row low and large, the back row higher up between them.
       const n = list.length, back = n > 2 && i % 2 === 1;
       const auto = n === 1 ? 50 : 10 + (i * 80) / (n - 1);
-      return { name: c.name, url: sdUrl(c.name), x: Number.isFinite(e.x) ? e.x : auto, y: Number.isFinite(e.y) ? Math.min(106, Math.max(68, e.y)) : back ? 80 : 100, s: e.s || 1 };
+      return { name: c.name, url: sdUrl(c.name), x: Number.isFinite(e.x) ? e.x : auto, y: Number.isFinite(e.y) ? Math.min(106, Math.max(68, e.y)) : back ? 80 : 100, s: 1 };
     });
   }
   function setHome(name, patch) {
@@ -1382,7 +1388,7 @@ img.baked { filter: none !important; }
       let lobby = screen.querySelector(":scope > .gfx-lobby");
       if (!enabled) { lobby?.remove(); continue; }
       const cast = homeCast();
-      const key = (lobbyEdit ? "E:" + lobbyPicked + ":" : "") + cast.map((c) => [c.name, c.url, c.x.toFixed(1), c.y.toFixed(1), c.s, faceOf(c.name)].join(",")).join("|");
+      const key = (lobbyEdit ? "E:" + lobbyPicked + ":" : "") + cast.map((c) => [c.name, c.url, c.x.toFixed(1), c.y.toFixed(1), faceOf(c.name)].join(",")).join("|");
       if (lobby && lobby.getAttribute("data-key") === key) continue;
       lobby?.remove();
       lobby = el("div", "gfx-lobby");
@@ -1417,7 +1423,7 @@ img.baked { filter: none !important; }
   function placeWho(who, st) {
     const { w, h } = lobbySize;
     if (!w || !h) return;
-    const k = st.s * (0.55 + 0.45 * depthOf(st.y));
+    const k = st.s * (prefs.lobbyScale || 1) * (0.55 + 0.45 * depthOf(st.y));
     who.style.transform = "translate(" + ((st.x / 100) * w).toFixed(1) + "px," + ((st.y / 100) * h).toFixed(1) + "px) scale(" + k.toFixed(3) + ") translate(-50%,-100%)";
     const z = String(Math.round(st.y * 10));
     if (who.style.zIndex !== z) who.style.zIndex = z;
@@ -1533,12 +1539,14 @@ img.baked { filter: none !important; }
       if (!lobbyEdit) return;
       e.preventDefault();
       e.stopPropagation();
-      setHome(c.name, { s: Math.min(2.5, Math.max(0.4, (c.s || 1) * (e.deltaY < 0 ? 1.08 : 0.92))) });
-      lobbyPicked = c.name;
-      savePrefs();
-      refresh();
+      resizeLobby(e.deltaY < 0 ? 1.06 : 0.94);
     }, { passive: false });
     return who;
+  }
+  // The lobby's size, all at once; the loop reads it every frame, so nothing is rebuilt.
+  function resizeLobby(f) {
+    prefs.lobbyScale = Math.min(2, Math.max(0.5, +((prefs.lobbyScale || 1) * f).toFixed(3)));
+    savePrefs();
   }
   function lobbyTools() {
     const tools = el("div", "gfx-lobby-tools");
@@ -1550,17 +1558,20 @@ img.baked { filter: none !important; }
       on(b, "pointerdown", (e) => e.stopPropagation());
       return b;
     };
-    const scale = (f) => () => {
-      const c = homeCast().find((x) => x.name === lobbyPicked);
-      if (!c) return;
-      setHome(c.name, { s: Math.min(2.5, Math.max(0.4, c.s * f)) });
-      savePrefs();
-      refresh();
-    };
     if (lobbyEdit) {
       tools.append(btn("완료", () => { lobbyEdit = false; lobbyPicked = ""; refresh(); }, "data-main"),
-        btn("크게", scale(1.12)), btn("작게", scale(0.89)),
+        btn("모두 크게", () => resizeLobby(1.1)), btn("모두 작게", () => resizeLobby(0.9)),
         btn("자동 배치", () => { const w = world(); if (w) { for (const e of Object.values(prefs.home[w.id] || {})) { e.x = NaN; e.y = NaN; e.s = 1; } savePrefs(); refresh(); } }));
+      // Who stands in the lobby: every character with an SD, pressed ones are out.
+      const w = world(), mine = (w && prefs.home[w.id]) || {};
+      const cast = el("div", "gfx-lobby-cast");
+      for (const c of w ? w.cards.filter((x) => sdUrl(x.name)) : []) {
+        const shown = mine[c.name] ? mine[c.name].on : true;
+        const b = btn((shown ? "✓ " : "") + c.name, () => { setHome(c.name, { on: !shown }); savePrefs(); refresh(); });
+        b.setAttribute("aria-pressed", String(shown));
+        cast.append(b);
+      }
+      tools.append(cast);
     } else tools.append(btn("✥ 배치", () => { lobbyEdit = true; refresh(); }, "data-edit-toggle"));
     return tools;
   }
