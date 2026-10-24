@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.24 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.25 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -1568,7 +1568,15 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     setSprite(img, url, flip);
     if (!container.hasAttribute("data-gfx-sd")) container.setAttribute("data-gfx-sd", "");
   }
+  let perfAt = 0;
+  function perfStep(label) {
+    if (!PERF) return;
+    const now = performance.now(), p = window.__gfxPerf;
+    if (label && perfAt) { const e = (p.parts ||= {})[label] ||= [0, 0, 0]; const dt = now - perfAt; e[0]++; e[1] += dt; e[2] = Math.max(e[2], dt); }
+    perfAt = now;
+  }
   function paintSprites(root) {
+    perfStep("");
     const on = !!current;
     const whoEl = root.querySelector(".vn-who");
     const who = whoEl && !whoEl.hasAttribute("data-narration") ? whoEl.textContent.replace(/\s*\(.*?\)\s*$/, "").trim() : "";
@@ -1582,6 +1590,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       if (has !== plate.hasAttribute("data-gfx-sd")) { if (has) plate.setAttribute("data-gfx-sd", ""); else plate.removeAttribute("data-gfx-sd"); }
     }
     paintVnCast(root, on && prefs.opts.storySd, whoEl && whoEl.hasAttribute("data-narration") ? "" : who, snapshot);
+    perfStep("story");
     const field = on && prefs.opts.field;
     for (const card of root.querySelectorAll(".cbt")) {
       let url = "", name = "";
@@ -1604,11 +1613,16 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
         if (shade) shade.after(t); else arena.prepend(t);
       } else if (!field && tiles) tiles.remove();
     }
+    perfStep("battle");
     paintScroll(root, on && prefs.opts.autoScroll);
     paintSummon(root, on && prefs.opts.motion);
+    perfStep("scroll+summon");
     paintTeam(root, on && prefs.opts.team);
+    perfStep("team");
     paintLobby(root, on && prefs.opts.lobby);
+    perfStep("lobby");
     paintAttend(root, on && prefs.opts.attend);
+    perfStep("attend");
     // World creation: the mascot in place of the emblem.
     for (const center of root.querySelectorAll(".forge-center")) {
       const has = center.querySelector(":scope > .gfx-forge-mascot");
@@ -2377,6 +2391,9 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     cast[name] = { on: true, x: NaN, y: NaN, s: 1, ...cast[name], ...patch };
   }
   const SWORDS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6M16 16l4 4M19 21l2-2"/><path d="M9.5 17.5 21 6V3h-3L6.5 14.5"/><path d="m11 19-6-6M8 16l-4 4M5 21l-2-2"/></svg>';
+  // The lobby last built. The game rebuilds the home screen on every return, which dropped the lobby with it;
+  // it was then built again from nothing (sprites, sizes, roaming) — the stall on coming home.
+  let keptLobby = null;
   function paintLobby(root, enabled) {
     // The big story card leaves the lobby; its button lives in the menu row instead, like Trickcal's 전투.
     for (const dock of root.querySelectorAll(".hm-dock")) {
@@ -2397,7 +2414,16 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       const floorKey = Object.values(lobbyScene()).map((v) => Number(v).toFixed(1)).join(",");
       const key = (lobbyEdit ? "E:" + (floorEdit ? "F:" : "C:") : "") + floorKey + ":" + cast.map((c) => [c.name, c.url, faceOf(c.name)].join(",")).join("|");
       if (lobby && lobby.getAttribute("data-key") === key) { cast.forEach(roamState); continue; }
+      // Same cast and floor as before: the kept lobby goes straight back in.
+      if (!lobby && keptLobby && keptLobby.getAttribute("data-key") === key) {
+        const scene = screen.querySelector(":scope > .hm-scene");
+        if (scene) scene.after(keptLobby); else screen.append(keptLobby);
+        cast.forEach(roamState);
+        startRoam(keptLobby);
+        continue;
+      }
       if (!lobby) lobby = el("div", "gfx-lobby");
+      keptLobby = lobby;
       lobby.setAttribute("data-key", key);
       lobby.setAttribute("data-count", String(cast.length));
       lobby.toggleAttribute("data-edit", lobbyEdit);
@@ -3576,7 +3602,18 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
 
   /* ═════════════ Following the game ═════════════ */
   let observed = null, observer = null, scheduled = false, lastRun = "";
+  const PERF = (() => { try { return localStorage.getItem("gfx-debug") === "1"; } catch { return false; } })();
+  if (PERF) window.__gfxPerf = { n: 0, total: 0, max: 0, slow: [] };
   function refresh() {
+    if (!PERF) return refreshBody();
+    const t0 = performance.now();
+    refreshBody();
+    const dt = performance.now() - t0, p = window.__gfxPerf;
+    p.n++; p.total += dt; p.max = Math.max(p.max, dt);
+    if (dt > 8) p.slow.push([Math.round(dt), host()?._hudView]);
+    if (p.slow.length > 40) p.slow.shift();
+  }
+  function refreshBody() {
     if (disposed) return;
     apply();
     const root = gameRoot();
@@ -3588,7 +3625,16 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       paintSettings();
     }
     paintSprites(root);
+    perfStep("rest");
     ensureLoadMounted();
+  }
+  // Right away (a whole new screen); a burst of these within one task runs once.
+  let refreshing = false;
+  function refreshNow() {
+    if (disposed || refreshing) return;
+    refreshing = true;
+    try { refresh(); } finally { refreshing = false; }
+    scheduled = false;
   }
   // Before the next paint, once per frame: the game's redraw and this extension's touches land in the same frame.
   function schedule() {
@@ -3616,9 +3662,12 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       observed = root;
       if (root) {
         observer = new MutationObserver((records) => {
-          // The loading screen goes back at once (before paint); the rest can wait a frame or two.
+          /* The game drew a new screen: dress it now, before the browser paints. Waiting for the next frame
+           * let one frame of the game's own screen show first (the lobby, tiles and cards popped in a frame
+           * late on every tab change). */
           for (const r of records) {
             if (isOwnMutation(r)) continue;
+            if (records.some((x) => x.type === "childList" && x.addedNodes.length > 2)) return refreshNow();
             return schedule();
           }
         });
