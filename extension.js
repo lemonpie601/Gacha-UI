@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.30 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.31 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -344,6 +344,11 @@ ${T} .gf-stage, ${T} .hm-ground {
  * and bigger pushed their tops past the edge of the game screen, where they were cut off). */
 ${T} .gf-bar { align-items: center !important; }
 ${T} .gf-bar :is(.icon-button, .currency) { box-sizing: border-box !important; max-height: 100%; align-self: center !important; margin-block: 0 !important; }
+/* The bar's buttons press onto shading inside their own outline instead of a drop below it: on a shorter bar the
+ * drop ran into the bar's bottom line and their lower edge looked cut off. */
+${T} .gf-bar :is(.icon-button, .currency, .back, .sv-q), ${T} :is(.head-id, .gf-bar) > :is(.back, .sv-q) {
+  box-shadow: inset 0 -.22em 0 color-mix(in srgb, var(--gfx-line) 70%, transparent), 0 .08em 0 color-mix(in srgb, var(--gfx-line) 25%, transparent) !important; }
+${T} .gf-bar :is(.icon-button, .currency, .back, .sv-q):active { box-shadow: inset 0 -.06em 0 color-mix(in srgb, var(--gfx-line) 70%, transparent) !important; translate: 0 .06em; }
 /* Chunky outlined pieces: buttons press down onto a hard outline-coloured shadow. */
 ${T} .currency, ${T} .icon-button, ${T} .hm-chat, ${T} .hm-side, ${T} .hm-slot, ${T} .sv-q,
 ${T} .st-sect, ${T} .st-chip, ${T} .back, ${T} button.act, ${T} .diff-pill, ${T} .btn {
@@ -1175,7 +1180,7 @@ ${T} [data-screen="reveal"] .rv-back { background: radial-gradient(circle at 50%
 .gfx-cap-confetti { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
 .gfx-cap-confetti i { position: absolute; left: 50%; top: 52%; width: 2.2cqmin; height: 3.4cqmin; border-radius: .6cqmin; background: var(--c); opacity: 0;
   transform: rotate(var(--a)) translateY(0); animation: gfx-cap-burst 700ms cubic-bezier(.2,.8,.4,1) 1100ms both; }
-@keyframes gfx-cap-burst { 0% { opacity: 1; transform: rotate(var(--a)) translateY(0) rotate(0deg); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(-1 * var(--d))) rotate(320deg); } }
+@keyframes gfx-cap-burst { 0% { opacity: 0; transform: rotate(var(--a)) translateY(0) rotate(0deg); } 6% { opacity: 1; } 100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(-1 * var(--d))) rotate(320deg); } }
 .gfx-cap-label { position: absolute; z-index: 4; top: 64%; font-family: var(--display, "Jua"), sans-serif; font-size: 7cqmin; color: #fff;
   -webkit-text-stroke: .9cqmin #5A3A24; paint-order: stroke fill; opacity: 0; animation: gfx-pop 380ms cubic-bezier(.3,1.6,.5,1) 1000ms both; }
 .gfx-summon[data-rarity="5"] .gfx-cap-label { color: #FFD34E; font-size: 9cqmin; }
