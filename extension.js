@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.19 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.20 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -1037,8 +1037,32 @@ ${T} [data-screen="events"] .bd { overflow: clip; overflow-clip-margin: 2em; }
 ${T} [data-screen="events"], ${T} [data-screen="events"] > .body, ${T} [data-screen="events"] .ev-cols { min-height: 0; min-width: 0; overflow: hidden !important; }
 ${T} [data-screen="events"] .ev-pane.pv { display: grid !important; grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-height: 0; min-width: 0; overflow: hidden !important; padding-bottom: .45em; }
-${T} [data-screen="events"] .pv-rail { grid-auto-columns: min(16cqh, calc(var(--f, 10px) * 10)) !important; }
-${T} [data-screen="events"] .pv-track { overflow-x: auto; overflow-y: hidden; min-height: 0; padding: .3em .3em .65em; }
+/* Battle pass, 말랑 manner: roomy reward tiles (the squeezed columns cut their text), soft fade at the track's
+ * ends, rounded mission cards. */
+${T} [data-screen="events"] .pv-rail { grid-auto-columns: calc(var(--f, 10px) * 10) !important; gap: .5em .5em !important; padding: .2em .6em; }
+${T} [data-screen="events"] .pv-track { overflow-x: auto; overflow-y: hidden; min-height: 0; padding: .35em 0 .7em;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 2.5%, #000 97.5%, transparent); mask: linear-gradient(90deg, transparent, #000 2.5%, #000 97.5%, transparent); }
+${T} [data-screen="events"] .pv-lvl { position: relative; border: 2.5px solid var(--gfx-line) !important; border-radius: 16px !important; clip-path: none !important;
+  background: var(--gfx-card) !important; box-shadow: 0 .2em 0 var(--gfx-line) !important; padding: .3em .3em .25em !important; gap: .1em; }
+${T} [data-screen="events"] .pv-lvl.prize { background: linear-gradient(170deg, color-mix(in srgb, #FFD34E 38%, var(--gfx-card)), var(--gfx-card) 70%) !important; }
+${T} [data-screen="events"] .pv-lvl.ready { background: color-mix(in srgb, var(--gfx-pick) 70%, var(--gfx-card)) !important; border-color: var(--gfx-accent) !important;
+  box-shadow: 0 .2em 0 var(--gfx-line), 0 0 0 .2em color-mix(in srgb, var(--gfx-accent) 35%, transparent) !important; }
+${T} [data-screen="events"] .pv-lvl.done { background: color-mix(in srgb, var(--gfx-card) 70%, var(--gfx-ink)) !important; box-shadow: none !important; border-color: color-mix(in srgb, var(--gfx-line) 45%, transparent) !important; }
+${T} [data-screen="events"] .pv-lvl.off { opacity: .8; }
+${T} [data-screen="events"] .pv-lvl .what { min-height: 0; line-height: 1.2; color: var(--gfx-text) !important; }
+${T} [data-screen="events"] .pv-lvl img.item-art { width: 46% !important; } ${T} [data-screen="events"] .pv-lvl.done img.item-art { opacity: .6 !important; }
+${T} [data-screen="events"] .pv-lvl .amt { color: var(--gfx-text) !important; }
+${T} [data-screen="events"] .pv-lvl .tick { top: -.45em !important; right: -.45em !important; width: 1.5em; height: 1.5em; display: grid !important; place-items: center; border-radius: 50%;
+  background: var(--gfx-accent); color: #fff !important; border: 2px solid var(--gfx-line); font-size: .8em; line-height: 1; }
+${T} [data-screen="events"] .pv-n { padding: 0 .6em; border-radius: 999px; background: color-mix(in srgb, var(--gfx-card) 85%, transparent); border: 1.5px solid color-mix(in srgb, var(--gfx-line) 50%, transparent); color: var(--gfx-text) !important; }
+${T} [data-screen="events"] .pv-list { gap: .55em !important; }
+${T} [data-screen="events"] .pv-m { border: 2.5px solid var(--gfx-line) !important; border-radius: 16px !important; clip-path: none !important; background: var(--gfx-card) !important;
+  box-shadow: 0 .2em 0 var(--gfx-line) !important; padding: .4em .75em !important; min-height: 0 !important; height: auto !important; }
+${T} [data-screen="events"] .pv-m.done { background: color-mix(in srgb, var(--gfx-pick) 45%, var(--gfx-card)) !important; }
+${T} [data-screen="events"] .pv-m .xp { border-radius: 999px; background: var(--gfx-accent) !important; color: #fff !important; padding: 0 .6em; }
+${T} [data-screen="events"] .pv-m .bar, ${T} [data-screen="events"] .pv-xp .bar { border-radius: 999px !important; overflow: hidden; background: color-mix(in srgb, var(--gfx-line) 15%, transparent) !important; }
+${T} [data-screen="events"] .pv-m .bar > i, ${T} [data-screen="events"] .pv-xp .bar > i { border-radius: 999px; background: var(--gfx-accent) !important; }
+${T} [data-screen="events"] .pv-tab { border-radius: 999px !important; }
 ${T} [data-screen="events"] .pv-missions { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .15em .3em .45em; }
 ${T} [data-screen="events"] .ev-foot { min-height: 0; padding-top: .3em; }
 ${T} [data-screen="events"] :is(.ev-claim, .sv-draw, .sv-fight) { font-size: calc(var(--f, 10px) * 1.15) !important; min-height: 2.4em; padding: .35em 1.4em !important; }
