@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.5 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.6 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -136,7 +136,8 @@
       size: SIZES.some(([s]) => s === g.size) ? g.size : DEFAULT_GEN.size,
     };
     const lobbyScale = typeof p.lobbyScale === "number" && Number.isFinite(p.lobbyScale) ? Math.min(2, Math.max(0.5, p.lobbyScale)) : 1;
-    return { colors, preset: typeof p.preset === "string" ? p.preset : "", opts, gen, home, homeScene, lobbyScale };
+    const storyCast = [2, 3, 4, 5].includes(p.storyCast) ? p.storyCast : 3;
+    return { colors, preset: typeof p.preset === "string" ? p.preset : "", opts, gen, home, homeScene, lobbyScale, storyCast };
   }
   let prefs = normalizePrefs((() => { try { return JSON.parse(localStorage.getItem(CACHE) || "null"); } catch { return null; } })());
 
@@ -228,7 +229,9 @@ ${T} .gf-arena {
   --porcelain-2: color-mix(in srgb, var(--gfx-card) 70%, var(--gfx-ink));
   /* Mostly a text and icon colour in the game (light on the dark styles), so here it follows the text. */
   --porcelain-3: color-mix(in srgb, var(--gfx-text) 78%, var(--gfx-ink));
-  --steel: color-mix(in srgb, var(--gfx-line) 62%, var(--gfx-ink));
+  /* The game's main muted text colour. On a light sheet the outline colour reads as strong text; on a dark one
+   * (밤하늘) the outline is darker than the sheet, so the text colour takes its place (see paintVars). */
+  --steel: color-mix(in srgb, var(--gfx-strong, var(--gfx-line)) 62%, var(--gfx-ink));
   --steel-dark: color-mix(in srgb, var(--gfx-line) 85%, var(--gfx-ink));
   --steel-faint: color-mix(in srgb, var(--gfx-text) 68%, var(--gfx-ink));
   --coral: var(--gfx-accent);
@@ -398,7 +401,11 @@ ${T} .vn-plate[data-gfx-sd] { opacity: 0 !important; }
    (키 below 보통) keeps the same feet line and simply stands lower-headed. */
 .gfx-vn-cast .who { position: absolute; bottom: 9%; height: 84%; aspect-ratio: 0.68; translate: -50% 0; z-index: 1;
   filter: brightness(0.6) saturate(0.85); scale: 0.94; transform-origin: 50% 100%;
-  transition: left 420ms cubic-bezier(.3,1.3,.5,1), filter 250ms ease, scale 250ms ease; animation: gfx-cast-in 380ms ease both; }
+  transition: left 560ms cubic-bezier(.4,0,.2,1), filter 250ms ease, scale 250ms ease, opacity 300ms ease; animation: gfx-cast-in 380ms ease both; }
+/* Four or five on stage stand a little smaller so they fit side by side. */
+.gfx-vn-cast[data-n="4"] .who { height: 76%; }
+.gfx-vn-cast[data-n="5"] .who { height: 68%; }
+.gfx-vn-cast .who[data-leaving] { opacity: 0; translate: -50% 4%; transition: opacity 300ms ease, translate 300ms ease; }
 .gfx-vn-cast .who[data-speaking] { filter: none; scale: 1; z-index: 2; }
 .gfx-vn-cast .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; scale: var(--hf, 1); animation: gfx-breathe 3.4s ease-in-out infinite; }
 .gfx-vn-cast .who[data-hop] .body { animation: gfx-talk-hop 380ms ease, gfx-breathe 3.4s ease-in-out 380ms infinite; }
@@ -410,11 +417,15 @@ ${T} .vn-plate[data-gfx-sd] { opacity: 0 !important; }
 .vn[data-cg] .gfx-vn-cast { display: none; }
 .vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .gfx-vn-cast { display: none; }
 .vn .vn-choices, .vn .vn-choice, .vn [data-choice] { position: relative; z-index: 8; }
+/* The game's cleared-chapter green is a fixed dark colour; on a dark sheet it takes a light one. */
+${T} .ch-card.cleared .ch-index, ${T} .diffs span.on { color: var(--gfx-jade-text, #1C6B54) !important; }
 /* Gacha Choice's shipped runtime uses gch-menu / gch-opt. */
 ${T} .vn:has(.gch-menu:not([hidden])) .gfx-vn-cast { display: none !important; }
 ${T} .vn .gch-menu { position: relative; z-index: 12; align-items: stretch !important; max-height: 38cqh;
-  overflow-y: auto; overscroll-behavior: contain; gap: .55em !important; padding: .35em .4em .65em; margin-bottom: .3em !important; }
-${T} .vn .gch-menu .gch-opt { display: flex !important; align-items: center; min-width: 0 !important; width: 100%;
+  overflow-y: auto; overscroll-behavior: contain; gap: .55em !important; padding: .35em .4em .65em; margin-bottom: .3em !important;
+  /* A centred column of pills instead of bars across the whole scene. */
+  width: min(62%, 52em) !important; min-width: min(100%, 26em); margin-inline: auto !important; align-self: center !important; box-sizing: border-box; }
+${T} .vn .gch-menu .gch-opt { display: flex !important; align-items: center; justify-content: center; text-align: center; min-width: 0 !important; width: 100%;
   box-sizing: border-box !important; border: 3px solid var(--gfx-line) !important; border-radius: 999px !important;
   clip-path: none !important; background: var(--gfx-card) !important; color: var(--gfx-text) !important;
   padding: .65em 1.2em !important; box-shadow: 0 .22em 0 var(--gfx-line), inset 0 .12em 0 #fff8 !important;
@@ -428,14 +439,20 @@ ${T} .vn-plate:not([data-gfx-sd]) .vn-art > img { object-fit: contain !important
 ${T} .vn-dock { position: relative; z-index: 5; max-height: 58%; }
 ${T} .vn:has(.gch-menu) .vn-box { max-height: 20cqh; overflow-y: auto; }
 .vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .vn-choices {
-  display: grid; gap: calc(var(--f, 10px) * 0.85); padding: calc(var(--f, 10px) * 1.2); isolation: isolate;
+  display: grid; gap: calc(var(--f, 10px) * 0.7); padding: calc(var(--f, 10px) * 0.9) 0; isolation: isolate;
+  /* A centred column of pills, not bars across the whole scene, so the picture stays visible around them. */
+  width: min(60%, calc(var(--f, 10px) * 56)); min-width: min(100%, calc(var(--f, 10px) * 30)); margin-inline: auto !important;
+}
+.vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .vn-choices .vn-choice,
+.vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .vn-choices > button {
+  justify-content: center; text-align: center; font-size: .92em;
 }
 .vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .vn-choices .vn-choice,
 .vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .vn-choices > button {
   border: calc(var(--f, 10px) * 0.28) solid var(--gfx-line) !important; border-radius: 999px !important;
   background: color-mix(in srgb, var(--gfx-card) 92%, white) !important; color: var(--gfx-text) !important;
   box-shadow: 0 calc(var(--f, 10px) * 0.5) 0 var(--gfx-line), inset 0 calc(var(--f, 10px) * 0.22) 0 #fff8 !important;
-  padding: calc(var(--f, 10px) * 1.05) calc(var(--f, 10px) * 2.2) !important;
+  padding: calc(var(--f, 10px) * 0.75) calc(var(--f, 10px) * 1.8) !important;
   transition: translate .14s ease, scale .14s ease, box-shadow .14s ease, background .14s ease;
 }
 .vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .vn-choices .vn-choice:hover,
@@ -875,10 +892,13 @@ ${T} [data-screen="banner"] .chip, ${T} [data-screen="banner"] .pity, ${T} [data
 ${T} [data-screen="banner"] .pull { border: 3px solid var(--gfx-line) !important; border-radius: 999px !important; background: linear-gradient(180deg, var(--gfx-pick), var(--gfx-accent)) !important; box-shadow: 0 .28em 0 var(--gfx-line) !important; }
 /* Re-entering a screen must not replay entrance animations on every game redraw. */
 ${T} [data-in] { animation: none !important; opacity: 1 !important; }
-${T} .root:has([data-chat-close]) :is(.hm-pk, .hm-chat-panel) { backdrop-filter: none !important; }
-${T} .root:has([data-chat-close]) .hm-pk-veil { backdrop-filter: none !important; }
-${T} .root:has([data-chat-close]) [data-pop] { animation: none !important; }
-${T} .hm-screen:has([data-chat-close]) .gfx-lobby .body { animation-play-state: paused !important; }
+/* A home popup (letters, the background picker): no live blur over the moving lobby, and the lobby holds still
+ * behind it. Blurring a scene that redraws every frame was what made these popups stutter as they opened. */
+${T} .root:has(:is([data-chat-close], .hm-pk-wrap)) :is(.hm-pk, .hm-chat-panel) { backdrop-filter: none !important; }
+${T} .root:has(:is([data-chat-close], .hm-pk-wrap)) .hm-pk-veil { backdrop-filter: none !important; background: color-mix(in srgb, var(--gfx-ink) 55%, transparent) !important; }
+${T} .root:has(:is([data-chat-close], .hm-pk-wrap)) [data-pop] { animation: none !important; }
+${T} .hm-screen:has(:is([data-chat-close], .hm-pk-wrap)) .gfx-lobby .body,
+${T} .root:has(:is([data-chat-close], .hm-pk-wrap)) .gfx-lobby .body { animation-play-state: paused !important; }
 ${T} [data-screen="events"], ${T} [data-screen="events"] > .body, ${T} [data-screen="events"] .ev-cols { min-height: 0; min-width: 0; overflow: hidden !important; }
 ${T} [data-screen="events"] .ev-pane.pv { display: grid !important; grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-height: 0; min-width: 0; overflow: hidden !important; padding-bottom: .45em; }
@@ -946,7 +966,10 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
   function paintVars() {
     if (!varSheet) varSheet = new CSSStyleSheet();
     const c = prefs.colors;
-    const text = T + " .gf-arena, .gfx-load { " + COLOR_FIELDS.map(([k]) => "--gfx-" + k + ": " + c[k] + ";").join(" ") + " }";
+    const lum = (hex) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "")); if (!m) return 1; const n = parseInt(m[1], 16); return (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255; };
+    const dark = lum(c.ink) < 0.45;
+    const text = T + " .gf-arena, .gfx-load { " + COLOR_FIELDS.map(([k]) => "--gfx-" + k + ": " + c[k] + ";").join(" ")
+      + " --gfx-strong: " + (dark ? "var(--gfx-text)" : "var(--gfx-line)") + "; --gfx-jade-text: " + (dark ? "#86E3B8" : "#1C6B54") + "; }";
     if (text !== varText) { varText = text; varSheet.replaceSync(text); }
     return varSheet;
   }
@@ -1429,8 +1452,10 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
    * The current open portrait slots are authoritative. Closed slots leave immediately, unknown full-frame art
    * is treated as CG, and characters without an SD use a contained portrait card in the same stage. */
   const MAX_STORY_CAST = 3;
+  // How many stand on the stage at once: a setting (2–5), 3 by default.
+  const castMax = () => prefs.storyCast || MAX_STORY_CAST;
   const vnCast = { renderedKey: "" };
-  const CAST_X = { 1: [50], 2: [30, 70], 3: [19, 50, 81] };
+  const CAST_X = { 1: [50], 2: [30, 70], 3: [19, 50, 81], 4: [14, 38, 62, 86], 5: [11, 30.5, 50, 69.5, 89] };
   // The protagonist always takes the left-most place, as the player's side of the stage.
   function protagonistName() {
     const w = world(), h = host();
@@ -1446,7 +1471,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
         && getComputedStyle(n).display !== "none" && (n.matches("button, [data-choice]") || n.querySelector("button, [role=button], .vn-choice")));
   }
   // Rebuild presence from the current scene, not from the entire world's cast.
-  function storyCastAt(segments, at, cast) {
+  function storyCastAt(segments, at, cast, max = MAX_STORY_CAST) {
     const normalize = (s) => String(s || "").normalize("NFC").trim().toLocaleLowerCase();
     const find = (s) => {
       const key = normalize(s);
@@ -1477,8 +1502,8 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       if (actor) { if (!present.has(actor.name)) present.set(actor.name, actor); spoke.set(actor.name, i); }
     }
     const all = Array.from(present.values());
-    if (all.length <= MAX_STORY_CAST) return all;
-    const keep = new Set(all.slice().sort((a, b) => (spoke.get(b.name) ?? -1) - (spoke.get(a.name) ?? -1)).slice(0, MAX_STORY_CAST).map((c) => c.name));
+    if (all.length <= max) return all;
+    const keep = new Set(all.slice().sort((a, b) => (spoke.get(b.name) ?? -1) - (spoke.get(a.name) ?? -1)).slice(0, max).map((c) => c.name));
     return all.filter((c) => keep.has(c.name));
   }
   function storySnapshot(root, speaker) {
@@ -1500,11 +1525,11 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     if (mode === "dialogue" && segments.length && cast.length) {
       const count = (vn.querySelector(".vn-count")?.textContent || "").match(/\d+/);
       const at = Math.max(0, Number(count?.[0] || 1) - 1);
-      const actors = storyCastAt(segments, at, cast);
+      const actors = storyCastAt(segments, at, cast, castMax());
       // A reply branch may use a different speaker than its parent beat.
       const speaking = cast.find((c) => c.name === speaker);
       if (speaking && !actors.some((c) => c.name === speaking.name)) actors.push(speaking);
-      for (const actor of actors.slice(-MAX_STORY_CAST)) {
+      for (const actor of actors.slice(-castMax())) {
         const portrait = actor.art || world()?.cards.find((c) => c.name === actor.name)?.portrait || "";
         if (portrait) world()?.byPortrait.set(pathOf(portrait), actor.name);
         slots.push({ id: actor.name, name: actor.name, portrait, plate: open.find((p) => nameFromImg(activePlateImage(p)) === actor.name) || null });
@@ -1529,7 +1554,35 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     const bg = bgImage?.getAttribute("src") || bgBox?.style.backgroundImage || (bgBox ? getComputedStyle(bgBox).backgroundImage : "") || "";
     const caption = (root.querySelector(".vn-caption")?.textContent || "").trim();
     const place = segments[Number(h?._beatAt) || 0]?.place || "";
-    return { mode, sceneKey: caption + "|" + place + "|" + bg, place: place || caption.split(/\s*·\s*/)[0] || "", slots: slots.slice(-MAX_STORY_CAST) };
+    return { mode, sceneKey: caption + "|" + place + "|" + bg, place: place || caption.split(/\s*·\s*/)[0] || "", slots: slots.slice(-castMax()) };
+  }
+  /* The line-up stands by each character's real width, not on even fifths of the stage: a small gap between
+   * neighbours, the group centred, and a slight overlap when the stage is full. Run after the sprites know
+   * their size (once per frame for the whole layer). */
+  const castLayoutQueued = new WeakSet();
+  function layoutCast(layer) {
+    if (castLayoutQueued.has(layer)) return;
+    castLayoutQueued.add(layer);
+    requestAnimationFrame(() => {
+      castLayoutQueued.delete(layer);
+      const W = layer.clientWidth;
+      const nodes = Array.from(layer.querySelectorAll(":scope > .who:not([data-leaving])")).sort((a, b) => (Number(a.dataset.i) || 0) - (Number(b.dataset.i) || 0));
+      if (!W || !nodes.length) return;
+      const widths = nodes.map((n) => n.offsetWidth * (Number(getComputedStyle(n).getPropertyValue("--hf")) || 1) * 0.86 / W * 100);
+      if (widths.some((w) => !w)) return;
+      const total = widths.reduce((a, b) => a + b, 0);
+      const room = 94;
+      const gap = nodes.length > 1 ? Math.max(-Math.min(...widths) * 0.3, Math.min(3, (room - total) / (nodes.length - 1))) : 0;
+      let x = 50 - (total + gap * (nodes.length - 1)) / 2;
+      nodes.forEach((n, i) => {
+        const center = x + widths[i] / 2;
+        x += widths[i] + gap;
+        n.dataset.x = center.toFixed(2);
+        // A newcomer appears where it belongs; only those already standing glide over.
+        if (!n.dataset.placed) { n.dataset.placed = "1"; n.style.transition = "none"; requestAnimationFrame(() => { n.style.transition = ""; }); }
+        clampCastPosition(layer, n);
+      });
+    });
   }
   function clampCastPosition(layer, node) {
     if (!layer.clientWidth || !node.offsetWidth) return;
@@ -1578,11 +1631,17 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     layer.setAttribute("data-key", key);
     vnCast.renderedKey = key;
     const xs = CAST_X[slots.length] || [];
+    layer.setAttribute("data-n", String(slots.length));
     const ids = new Set(slots.map((s) => s.id));
-    for (const n of layer.querySelectorAll(":scope > .who")) if (!ids.has(n.getAttribute("data-slot"))) n.remove();
+    // One who leaves fades where they stood while the others glide over, instead of the line-up jumping.
+    for (const n of layer.querySelectorAll(":scope > .who:not([data-leaving])")) {
+      if (ids.has(n.getAttribute("data-slot"))) continue;
+      n.setAttribute("data-leaving", "");
+      setTimeout(() => n.remove(), 360);
+    }
     slots.forEach((slot, i) => {
       const name = slot.name;
-      let n = Array.from(layer.children).find((x) => x.getAttribute("data-slot") === slot.id);
+      let n = Array.from(layer.children).find((x) => x.getAttribute("data-slot") === slot.id && !x.hasAttribute("data-leaving"));
       if (!n) {
         n = el("div", "who");
         n.setAttribute("data-slot", slot.id);
@@ -1596,8 +1655,9 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
         layer.append(n);
       }
       n.setAttribute("data-name", name);
-      n.dataset.x = String(xs[i]);
-      n.style.left = xs[i] + "%";
+      n.dataset.i = String(i);
+      // Where they stand comes from layoutCast; a newcomer starts at its even share until its size is known.
+      if (!n.style.left) { n.dataset.x = String(xs[i]); n.style.left = xs[i] + "%"; }
       const im = n.querySelector("img");
       const sd = sdUrl(name, slot.portrait);
       let placeholder = n.querySelector(".gfx-vn-placeholder");
@@ -1610,7 +1670,13 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
         }
       } else { im.hidden = false; placeholder?.remove(); }
       im.classList.toggle("portrait", !sd);
-      if (sd) setSprite(im, sd, needFlip(name, xs[i] < 50 ? "right" : xs[i] > 50 ? "left" : ""));
+      // Facing follows the side of the stage, but only turns when the character crosses to the other side:
+      // stepping in from the middle keeps the way they already look (a sudden mirror read as a jump).
+      const side = xs[i] < 50 ? "L" : xs[i] > 50 ? "R" : "C", was = n.dataset.side || "";
+      const face = was && (side === "C" || was === "C") ? n.dataset.face ?? "" : side === "L" ? "right" : side === "R" ? "left" : "";
+      n.dataset.side = was && side !== "C" && was !== "C" || !was ? side : was;
+      n.dataset.face = face;
+      if (sd) setSprite(im, sd, needFlip(name, face));
       else {
         if (im.getAttribute("src") !== slot.portrait) im.src = slot.portrait;
         im.style.scale = "";
@@ -1618,7 +1684,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       }
       const fit = () => {
         if (im.naturalWidth && im.naturalHeight) n.style.aspectRatio = String(Math.min(1.1, im.naturalWidth / im.naturalHeight));
-        requestAnimationFrame(() => clampCastPosition(layer, n));
+        layoutCast(layer);
       };
       if (im.complete) fit(); else im.addEventListener("load", fit, { once: true });
       const speaking = name === speaker;
@@ -2106,12 +2172,13 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     if (!lobby || disposed) { roamLast = 0; return; }
     const dt = roamLast ? Math.min(0.1, (t - roamLast) / 1000) : 0;
     roamLast = t;
+    // A popup over the home (letters, the background picker) holds everyone still; checked once a frame.
+    const popup = !!gameRoot()?.querySelector("[data-chat-close], .hm-pk-wrap");
     for (const who of lobby.children) {
       if (!who.classList.contains("who")) continue;
       const st = roam.get(who.getAttribute("data-name"));
       if (!st) continue;
-      const busy = document.hidden || !prefs.opts.motion || lobbyEdit || who.hasAttribute("data-talk") || who.hasAttribute("data-pinch")
-        || !!gameRoot()?.querySelector("[data-chat-close]");
+      const busy = popup || document.hidden || !prefs.opts.motion || lobbyEdit || who.hasAttribute("data-talk") || who.hasAttribute("data-pinch");
       let walking = false;
       if (!busy && dt) {
         if (st.wait > 0) { st.wait -= dt; if (st.wait <= 0) pickTarget(st); }
@@ -2625,7 +2692,10 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       on(b, "click", (e) => { e.stopPropagation(); prefs.opts[k] = !prefs.opts[k]; savePrefs(); refresh(); });
       grid.append(b);
     }
-    p.append(grid);
+    const cast = el("div", "st-chips");
+    cast.style.marginTop = ".7em";
+    for (const n of [2, 3, 4, 5]) cast.append(chip(n + "명", () => { prefs.storyCast = n; savePrefs(); paintSettings(); refresh(); }, { "data-gfx-cast": String(n) }));
+    p.append(grid, hint("스토리에 한 번에 서는 최대 인원 (넘으면 가장 오래 말하지 않은 인물이 물러납니다)"), cast);
     return p;
   }
 
@@ -2885,6 +2955,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     const root = gameRoot();
     if (!root) return;
     for (const b of root.querySelectorAll("[data-gfx-preset]")) b.setAttribute("aria-pressed", String(b.getAttribute("data-gfx-preset") === prefs.preset));
+    for (const b of root.querySelectorAll("[data-gfx-cast]")) b.setAttribute("aria-pressed", String(Number(b.getAttribute("data-gfx-cast")) === castMax()));
     for (const i of root.querySelectorAll("[data-gfx-color]")) { const v = prefs.colors[i.getAttribute("data-gfx-color")]; if (i.value.toUpperCase() !== v) i.value = v; }
     for (const b of root.querySelectorAll("[data-gfx-opt]")) b.setAttribute("aria-pressed", String(!!prefs.opts[b.getAttribute("data-gfx-opt")]));
     for (const b of root.querySelectorAll("[data-gfx-size]")) b.setAttribute("aria-pressed", String(b.getAttribute("data-gfx-size") === prefs.gen.size));
