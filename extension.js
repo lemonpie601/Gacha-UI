@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.11 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.12 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -143,6 +143,9 @@
 
   /* ═════════════ Server storage (this extension's own) ═════════════ */
   const storeUrl = EXT_ID ? "/api/personal-extensions/" + encodeURIComponent(EXT_ID) + "/storage" : "";
+  /* null when the read failed (network, server busy) — not the same as "nothing saved". Treating a failed read
+   * as empty used to let the next save write an almost empty SD list over the real one: lines and cheeks were
+   * wiped while the pictures came back from the gallery. */
   async function storeGet() {
     try {
       if (MARINARA?.storage?.get) {
@@ -151,9 +154,24 @@
       }
       if (!storeUrl) return {};
       const res = await fetch(storeUrl, { credentials: "same-origin" });
-      const data = res.ok ? await res.json() : null;
+      if (!res.ok) return null;
+      const data = await res.json();
       return data && data.value && typeof data.value === "object" ? data.value : {};
-    } catch { return {}; }
+    } catch { return null; }
+  }
+  // Worlds whose SD list was read from the server this session; only those are written back.
+  const sdReadOk = new Set();
+  /* A copy of every world's SD list in this browser. It survives a reinstall of the extension (a new ID starts
+   * with empty server storage) and fills in lines, cheeks and the rest wherever the server copy lacks them. */
+  const SD_BACKUP = "gfx-ui-style-sd-backup";
+  function readSdBackup() { try { return JSON.parse(localStorage.getItem(SD_BACKUP) || "{}") || {}; } catch { return {}; } }
+  function writeSdBackup(key, map) { try { const all = readSdBackup(); all[key] = map; localStorage.setItem(SD_BACKUP, JSON.stringify(all)); } catch {} }
+  function withBackup(key, map) {
+    const back = readSdBackup()[key];
+    if (!back || typeof back !== "object") return map;
+    const out = { ...map };
+    for (const [name, entry] of Object.entries(back)) out[name] = { ...(entry || {}), ...(out[name] || {}) };
+    return out;
   }
   /* Marinara rejects a write from a browser that is not on 127.0.0.1 (another device, Tailscale, a proxy)
    * unless it carries this header — its own pages send it on every write. Without it every SD and setting
@@ -169,12 +187,24 @@
     try { return JSON.stringify(readPending()) === JSON.stringify(sent); } catch { return false; }
   }
   async function sendStorePatch(patch) {
+    for (const [k, v] of Object.entries(patch)) if (k.startsWith("sd:") && v && typeof v === "object") writeSdBackup(k, v);
     const all = { ...readPending(), ...patch };
     try { localStorage.setItem(PENDING, JSON.stringify(all)); } catch {}
+    // An SD list for a world not yet read from the server stays in this browser until a read succeeds.
+    const unread = Object.keys(all).filter((k) => k.startsWith("sd:") && !sdReadOk.has(k.slice(3)));
+    if (unread.length) {
+      const send = { ...all };
+      for (const k of unread) delete send[k];
+      if (!Object.keys(send).length) { lastStoreError = "서버에서 아직 못 읽어서 이 브라우저에 보관 중"; return false; }
+      return sendRaw(send, all);
+    }
+    return sendRaw(all, all);
+  }
+  async function sendRaw(all, pendingAll) {
     if (MARINARA?.storage?.patch) {
       try {
         await MARINARA.storage.patch(all);
-        if (pendingMatches(all)) try { localStorage.removeItem(PENDING); } catch {}
+        if (all === pendingAll && pendingMatches(all)) try { localStorage.removeItem(PENDING); } catch {}
         lastStoreError = "";
         return true;
       } catch (e) { lastStoreError = e.message; }
@@ -182,7 +212,7 @@
       try {
         const res = await fetch(storeUrl, { method: "PATCH", credentials: "same-origin", headers: JSON_HEADERS, body: JSON.stringify(all) });
         if (res.ok) {
-          if (pendingMatches(all)) try { localStorage.removeItem(PENDING); } catch {}
+          if (all === pendingAll && pendingMatches(all)) try { localStorage.removeItem(PENDING); } catch {}
           lastStoreError = "";
           return true;
         }
@@ -1079,10 +1109,14 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       w.byPortrait = new Map(w.cards.filter((c) => c.portrait).map((c) => [pathOf(c.portrait), c.name]));
       // Characters the story uses that are not owned yet (banner characters, story-only cast): listed as extras.
       addExtras(w, await bannerCast(w.id));
-      for (const name of Object.keys(stored["sd:" + w.id] || {})) addExtras(w, [{ name }]);
+      for (const name of Object.keys(stored?.["sd:" + w.id] || readSdBackup()["sd:" + w.id] || {})) addExtras(w, [{ name }]);
       const pending = readPending();
-      const sd = stored["sd:" + w.id], waiting = pending["sd:" + w.id];
-      w.sd = { ...(sd && typeof sd === "object" ? sd : {}), ...(waiting && typeof waiting === "object" ? waiting : {}) };
+      if (stored) sdReadOk.add(w.id);
+      const sd = stored?.["sd:" + w.id], waiting = pending["sd:" + w.id];
+      w.sd = withBackup("sd:" + w.id, { ...(sd && typeof sd === "object" ? sd : {}), ...(waiting && typeof waiting === "object" ? waiting : {}) });
+      // The server lacked something the browser copy had (or was empty after a reinstall): put it back.
+      if (stored && JSON.stringify(w.sd) !== JSON.stringify(sd || {})) storePatch({ ["sd:" + w.id]: w.sd });
+      else if (stored) writeSdBackup("sd:" + w.id, w.sd);
       for (const [name, entry] of Object.entries(w.sd)) {
         const portraits = Object.keys(entry?.variants || {});
         w.outfits.set(name, new Set(portraits));
@@ -1171,9 +1205,11 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     syncBusy = true;
     try {
       const stored = await storeGet(), pending = readPending(), w = world();
+      if (!stored) return;
       let changed = false;
-      if (w && stored["sd:" + w.id]) {
-        const next = { ...stored["sd:" + w.id], ...(pending["sd:" + w.id] || {}) };
+      if (w && w.state === "ready" && !sdReadOk.has(w.id)) { sdReadOk.add(w.id); w.sd = withBackup("sd:" + w.id, { ...(stored["sd:" + w.id] || {}), ...w.sd }); storePatch({ ["sd:" + w.id]: w.sd }); changed = true; }
+      else if (w && stored["sd:" + w.id]) {
+        const next = withBackup("sd:" + w.id, { ...stored["sd:" + w.id], ...(pending["sd:" + w.id] || {}) });
         if (JSON.stringify(next) !== JSON.stringify(w.sd)) { w.sd = next; changed = true; }
       }
       const editing = gameRoot()?.activeElement?.matches("input, textarea, select");
@@ -3336,7 +3372,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
   loadFonts();
   // Pending browser changes win until the serialized server write acknowledges them.
   storeGet().then((v) => {
-    if (disposed || (!v.prefs && !readPending().prefs)) return;
+    if (disposed || !v || (!v.prefs && !readPending().prefs)) return;
     prefs = normalizePrefs({ ...(v.prefs || {}), ...(readPending().prefs || {}) });
     try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {}
     refresh();
