@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.10 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.11 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -2562,6 +2562,11 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     if (!root) return;
     const target = root.querySelector(".gf-stage") || root.querySelector(".gf-arena");
     if (!target) return;
+    // On a fresh open this timer can find the game before the style pass has dressed it: without the sheet
+    // the SD was drawn at its full picture size for a moment (a face across the whole screen). The sheet goes
+    // on first, and the screen waits if it still is not there.
+    apply();
+    if (!root.adoptedStyleSheets.includes(styleSheet())) return;
     let mount = target.querySelector(":scope > .gfx-load-host");
     if (!load) { if (mount && !mount.childElementCount) mount.remove(); return; }
     if (!mount) { mount = el("div", "gfx-load-host"); target.append(mount); }
