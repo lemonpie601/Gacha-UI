@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.18 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.19 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -82,8 +82,8 @@
   const SIZES = [["832x1216", "세로 832×1216"], ["1024x1024", "정사각 1024"]];
   const TIPS = [
     "스토리 “다시 읽기”는 활력을 쓰지 않아요.",
-    "설정 → 화면에서 말랑 스타일의 색을 마음대로 바꿀 수 있어요.",
-    "SD 캐릭터는 설정 → 화면 → SD 캐릭터 만들기에서 뽑을 수 있어요.",
+    "설정 → 말랑 탭에서 색을 마음대로 바꿀 수 있어요.",
+    "SD 캐릭터는 설정 → 말랑 탭 → SD 관리에서 만들 수 있어요.",
     "로딩 중인 캐릭터를 눌러 보세요. 말랑해요.",
     "편성할 때 속성 상성을 맞추면 전투가 훨씬 쉬워져요.",
     "활력은 시간이 지나면 다시 차올라요.",
@@ -608,13 +608,13 @@ ${T} .gf-stage:has(> .gfx-load-host), ${T} .gf-arena:has(> .gfx-load-host) { pos
   color: var(--gfx-line); background: var(--gfx-card); border: 2.5px solid var(--gfx-line); border-radius: 999px; box-shadow: 0 0.14em 0 var(--gfx-line);
   rotate: 2deg; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gfx-load-world:empty { display: none; }
-.gfx-load-stage { position: absolute; left: 50%; top: 47%; translate: -50% -50%; width: calc(var(--u) * 34); height: calc(var(--u) * 34);
+.gfx-load-stage { position: absolute; left: 50%; top: 42%; translate: -50% -50%; width: calc(var(--u) * 34); height: calc(var(--u) * 34);
   display: grid; place-items: end center; cursor: pointer; }
 .gfx-load-stage::before { content: ""; position: absolute; inset: 6% 2% 10%; border-radius: 50%;
   background: radial-gradient(circle, color-mix(in srgb, #fff 80%, transparent), transparent 68%); }
 .gfx-load-shadow { position: absolute; bottom: 3%; left: 50%; width: 46%; height: 7%; translate: -50% 0; border-radius: 50%;
   background: color-mix(in srgb, var(--gfx-line) 28%, transparent); animation: gfx-shadow 0.9s ease-in-out infinite; }
-.gfx-load-hero { position: absolute; left: 0; right: 0; bottom: 0; height: 92%; display: grid; place-items: end center;
+.gfx-load-hero { position: absolute; left: 0; right: 0; bottom: 6%; height: 88%; display: grid; place-items: end center;
   transform-origin: 50% 100%; animation: gfx-jump 0.9s cubic-bezier(.4,0,.6,1) infinite; }
 /* The picture fills the hero box and fits inside it: a max-height in % does not hold inside this grid, so a
  * tall SD used to spill far past the box. */
@@ -698,6 +698,16 @@ ${F} .arena .cbt .ava { inset: 16% 10% 4% !important; width: auto !important; he
   border: 3px solid #fff !important; outline: 2.5px solid var(--gfx-line); border-radius: 14px !important; box-shadow: 0 0.3em 0 var(--gfx-line) !important; }
 ${F} .arena .cbt[data-gfx-sd] .ava, ${F} .arena .cbt[data-gfx-foe] .ava { background: none !important; border: 0 !important; outline: 0; box-shadow: none !important; }
 ${F} .arena .cbt[data-gfx-foe] .ava > svg { display: none; }
+/* The element badge sat on the (hidden) card's top-right corner and poked out beside the bars; on the field
+ * it is a small round chip at the start of the name tag. */
+${F} .arena .cbt .aff-badge { top: calc(var(--f, 10px) * -0.35) !important; right: auto !important; left: calc(var(--f, 10px) * -0.6) !important;
+  width: calc(var(--f, 10px) * 1.7) !important; height: calc(var(--f, 10px) * 1.7) !important; border-radius: 50% !important; clip-path: none !important;
+  background: var(--gfx-card) !important; border: 2px solid var(--gfx-line) !important; box-shadow: 0 .12em 0 var(--gfx-line) !important; z-index: 5; pointer-events: none; }
+/* Overlapping foes: only the figure takes a click. The front foe's empty card area and its name, bars and
+ * estimate tags let a click through to the foe standing behind it. */
+${F} .arena .cbt.enemy { pointer-events: none; }
+${F} .arena .cbt.enemy > :is(.gfx-foe, img.gfx-sd, .ava) { pointer-events: auto; }
+${F} .arena .cbt.enemy > :is(.nm, .bars, .cbt-est, .fx) { pointer-events: none !important; }
 ${F} .arena .cbt[data-gfx-sd] > img.gfx-sd { left: -20% !important; right: auto !important; width: 140% !important; height: calc(92% * var(--hf, 1)) !important; bottom: 2% !important; z-index: 1; }
 ${F} .arena .cbt > .gfx-foe { position: absolute; left: 0; right: 0; bottom: 2%; height: 62%; z-index: 1; display: grid; place-items: end center; pointer-events: none; transform-origin: 50% 100%; }
 ${F} .arena .cbt > .gfx-foe svg { width: 100%; height: 100%; overflow: visible; filter: ${STICKER}; }
@@ -759,7 +769,7 @@ ${TM} .slot.filled:nth-child(2) > img.gfx-sd { animation-delay: -0.9s; } ${TM} .
 .gfx-team > span:nth-child(2n) { animation-delay: -0.8s; } .gfx-team > span:nth-child(3n) { animation-delay: -1.5s; }
 .gfx-team > span::after { content: ""; position: absolute; bottom: -6%; left: 18%; right: 18%; height: 8%; border-radius: 50%;
   background: color-mix(in srgb, var(--gfx-line, #6B4528) 30%, transparent); animation: gfx-shadow 2.4s ease-in-out infinite; }
-.gfx-team.win { height: calc(var(--f, 10px) * 11); margin: 0.2em 0 0.6em; }
+.gfx-team.win { height: auto; min-height: 0; margin: 0.2em 0 0.6em; }
 .gfx-team.win > span { animation: gfx-cheer 0.9s cubic-bezier(.4,0,.6,1) infinite; }
 .gfx-team.win > span::after { animation: gfx-shadow 0.9s ease-in-out infinite; }
 @keyframes gfx-cheer { 0%, 100% { transform: translateY(0) scale(1.06, 0.94); } 50% { transform: translateY(-22%) scale(0.96, 1.05); } }
@@ -1883,7 +1893,9 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       if (!members.length) continue;
       row = el("div", "gfx-team win");
       row.setAttribute("data-key", key);
-      members.forEach((member, i) => { const sp = el("span"), im = el("img"); setSprite(im, member.url, false); im.style.setProperty("--hf", String(Number(sdEntry(member.name).tall) || 1)); im.alt = ""; sp.style.animationDelay = (-i * 0.18).toFixed(2) + "s"; sp.append(im); row.append(sp); });
+      // Sizes on the elements themselves: the game redraws this screen and moves pieces around, and an SD that
+      // ended up outside the sheet's reach was drawn at its full picture size across the whole screen.
+      members.forEach((member, i) => { const sp = el("span"), im = el("img"); sp.style.setProperty("height", "auto", "important"); im.style.setProperty("height", "clamp(70px, 19vh, 210px)", "important"); im.style.setProperty("width", "auto", "important"); setSprite(im, member.url, false); im.style.setProperty("--hf", String(Number(sdEntry(member.name).tall) || 1)); im.alt = ""; sp.style.animationDelay = (-i * 0.18).toFixed(2) + "s"; sp.append(im); row.append(sp); });
       verdict.after(row);
     }
     for (const brief of root.querySelectorAll(".briefing")) {
