@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.15 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.16 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -1177,7 +1177,8 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     for (const x of list || []) {
       const name = String(x?.name || "").trim();
       if (!name || w.cards.some((c) => c.name === name)) continue;
-      w.cards.push({ name, id: x.id || "", portrait: x.portrait || x.art || "", kind: "character", extra: true });
+      w.cards.push({ name, id: x.id || x.unitId || "", portrait: x.portrait || x.art || "", kind: "character", extra: true,
+        look: String(x.appearance || x.look || "").trim() });
       if (x.portrait || x.art) w.byPortrait.set(pathOf(x.portrait || x.art), name);
       added = true;
     }
@@ -1194,7 +1195,10 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
   }
   // A character's details: the game's unit when it has one, else what its portrait was drawn from.
   async function unitOf(card, w = world()) {
-    if (card.id) { try { return (await gf("/unit", { runId: w.id, unitId: card.id })).unit || {}; } catch {} }
+    // No ID (met only in the story, or listed from saved data): find it on the banners by name.
+    if (!card.id) { try { const hit = (await bannerCast(w.id)).find((u) => u.name === card.name); if (hit?.id) card.id = hit.id; } catch {} }
+    if (card.id) { try { const u = (await gf("/unit", { runId: w.id, unitId: card.id })).unit; if (u && String(u.appearance || "").trim()) return u; } catch {} }
+    if (card.look) return { name: card.name, appearance: card.look };
     let appearance = "";
     try {
       const list = await fetch("/api/global-gallery", { credentials: "same-origin" }).then((r) => r.json());
@@ -3145,7 +3149,9 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       const outfit = variantKey && u.unit?.outfits?.find((o) => o.url && pathOf(o.url) === pathOf(variantKey));
       if (variantKey && !outfit) throw Error("해당 의상 정보를 찾을 수 없습니다. SD 편집을 다시 열어 주세요.");
       const appearance = String(outfit?.prompt || [u.unit?.appearance, outfit?.outfitLine, ...(outfit?.outfitTags || [])].filter(Boolean).join(", ")).trim();
-      const prompt = prefs.gen.template.replace(/\{appearance\}/g, appearance || card.name).replace(/\{name\}/g, card.name).replace(/\s+/g, " ").trim();
+      // Without a description the model drew anyone (a crowd of strangers): better not to draw at all.
+      if (!appearance) throw Error("외형 정보를 찾지 못했습니다. 소환하거나 스토리에서 초상이 생긴 뒤 다시 그려 주세요.");
+      const prompt = prefs.gen.template.replace(/\{appearance\}/g, appearance).replace(/\{name\}/g, card.name).replace(/\s+/g, " ").trim();
       const [width, height] = prefs.gen.size.split("x").map(Number);
       const res = await fetch("/api/characters/avatar-generation", {
         method: "POST", credentials: "same-origin", headers: JSON_HEADERS,
