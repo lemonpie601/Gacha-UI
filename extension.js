@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.26 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.27 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -278,7 +278,7 @@
   const HALO = "0 0 2px var(--gfx-card), 0 0 5px color-mix(in srgb, var(--gfx-card) 95%, transparent), 0 0 12px color-mix(in srgb, var(--gfx-card) 70%, transparent)";
   const STICKER = "drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff) drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff) drop-shadow(0 0.25em 0 color-mix(in srgb, var(--gfx-line) 55%, transparent))";
   const CSS = `
-${T} .gf-arena {
+${T} .gf-arena, :host([data-gfx-style="trickcal"][data-gfx-ghost]) {
   --gfx-ink: ${DEFAULT_COLORS.ink}; --gfx-card: ${DEFAULT_COLORS.card}; --gfx-text: ${DEFAULT_COLORS.text};
   --gfx-line: ${DEFAULT_COLORS.line}; --gfx-accent: ${DEFAULT_COLORS.accent}; --gfx-pick: ${DEFAULT_COLORS.pick};
   --gfx-sky1: ${DEFAULT_COLORS.sky1}; --gfx-sky2: ${DEFAULT_COLORS.sky2};
@@ -1186,7 +1186,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     const c = prefs.colors;
     const lum = (hex) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "")); if (!m) return 1; const n = parseInt(m[1], 16); return (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255; };
     const dark = lum(c.ink) < 0.45;
-    const text = T + " .gf-arena, .gfx-load { " + COLOR_FIELDS.map(([k]) => "--gfx-" + k + ": " + c[k] + ";").join(" ")
+    const text = T + " .gf-arena, .gfx-load, :host([data-gfx-ghost]) { " + COLOR_FIELDS.map(([k]) => "--gfx-" + k + ": " + c[k] + ";").join(" ")
       + " --gfx-strong: " + (dark ? "var(--gfx-text)" : "var(--gfx-line)") + "; --gfx-jade-text: " + (dark ? "#86E3B8" : "#1C6B54") + "; }";
     if (text !== varText) { varText = text; varSheet.replaceSync(text); }
     return varSheet;
@@ -1403,6 +1403,20 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
   }
 
   /* ═════════════ Applying ═════════════ */
+  /* The game fades a screen out (and holds one in place while redrawing) through a copy in a layer of its own
+   * (div.gf-leave / div.gf-hold with its own shadow root and only the game's styles). Without this sheet the copy
+   * showed the plain screen washed out, with the lobby's SDs at full picture size. */
+  function dressGhost(layer) {
+    const h = host(), sr = layer?.shadowRoot;
+    if (!h || !sr || layer.hasAttribute("data-gfx-ghost")) return;
+    layer.setAttribute("data-gfx-ghost", "");
+    for (const a of h.getAttributeNames()) if (a === ATTR || a.startsWith("data-gfx-")) layer.setAttribute(a, h.getAttribute(a));
+    sr.adoptedStyleSheets = [...sr.adoptedStyleSheets, styleSheet(), paintVars()];
+  }
+  function dressGhosts(root) {
+    if (!current) return;
+    for (const layer of root.querySelectorAll(".gf-stage > .gf-leave, .gf-stage > .gf-hold")) dressGhost(layer);
+  }
   function setFlag(h, name, value) {
     if (value) { if (!h.hasAttribute(name)) h.setAttribute(name, ""); }
     else if (h.hasAttribute(name)) h.removeAttribute(name);
@@ -3671,6 +3685,8 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
           /* The game drew a new screen: dress it now, before the browser paints. Waiting for the next frame
            * let one frame of the game's own screen show first (the lobby, tiles and cards popped in a frame
            * late on every tab change). */
+          // A transition copy appearing gets the sheet at once, in this same task.
+          for (const r of records) for (const n of r.addedNodes) if (n.nodeType === 1 && n.shadowRoot && /\bgf-(leave|hold)\b/.test(n.className)) dressGhost(n);
           for (const r of records) {
             if (isOwnMutation(r)) continue;
             if (records.some((x) => x.type === "childList" && x.addedNodes.length > 2)) return refreshNow();
