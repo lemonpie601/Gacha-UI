@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.6.3 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.6.4 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -340,13 +340,13 @@ ${T} .vn-plate[data-gfx-sd] > img.gfx-sd {
 /* The cast line-up: large SDs standing behind the dialogue box (the box is the game's, untouched). */
 ${T} .vn-plate[data-gfx-sd] { opacity: 0 !important; }
 .gfx-vn-cast { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
-.gfx-vn-cast .who { position: absolute; bottom: -14%; height: 92%; aspect-ratio: 0.68; translate: -50% 0; z-index: 1;
+.gfx-vn-cast .who { position: absolute; bottom: -14%; height: calc(92% * var(--hf, 1)); aspect-ratio: 0.68; translate: -50% 0; z-index: 1;
   filter: brightness(0.6) saturate(0.85); scale: 0.94; transform-origin: 50% 100%;
   transition: left 420ms cubic-bezier(.3,1.3,.5,1), filter 250ms ease, scale 250ms ease; animation: gfx-cast-in 380ms ease both; }
 .gfx-vn-cast .who[data-speaking] { filter: none; scale: 1; z-index: 2; }
 .gfx-vn-cast .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-breathe 3.4s ease-in-out infinite; }
 .gfx-vn-cast .who[data-hop] .body { animation: gfx-talk-hop 380ms ease, gfx-breathe 3.4s ease-in-out 380ms infinite; }
-.gfx-vn-cast img { max-width: 100%; max-height: 100%; object-fit: contain; filter: ${STICKER}; -webkit-user-drag: none; }
+.gfx-vn-cast img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; filter: ${STICKER}; -webkit-user-drag: none; }
 @keyframes gfx-cast-in { from { opacity: 0; translate: -50% 8%; } to { opacity: 1; translate: -50% 0; } }
 @keyframes gfx-talk-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-3%) scale(0.98, 1.03); } 100% { transform: none; } }
 
@@ -366,7 +366,7 @@ ${T} .cbt .nm { color: var(--gfx-text) !important; text-shadow: ${HALO} !importa
 ${T} .cbt[data-gfx-sd] .ava { background: radial-gradient(90% 70% at 50% 85%, var(--gfx-pick), var(--gfx-sky2) 70%, var(--gfx-sky1)) !important; }
 ${T} .cbt[data-gfx-sd] .ava-photo { opacity: 0 !important; }
 ${T} .cbt[data-gfx-sd] > img.gfx-sd {
-  position: absolute; left: -6%; right: -6%; bottom: 16%; height: 96%; width: 112%; z-index: 2;
+  position: absolute; left: -6%; right: -6%; bottom: 16%; height: calc(96% * var(--hf, 1)); width: 112%; z-index: 2;
   object-fit: contain; object-position: 50% 100%; filter: ${STICKER}; transform-origin: 50% 100%; pointer-events: none;
 }
 
@@ -496,7 +496,7 @@ ${F} .arena .cbt .ava { inset: 16% 10% 4% !important; width: auto !important; he
   border: 3px solid #fff !important; outline: 2.5px solid var(--gfx-line); border-radius: 14px !important; box-shadow: 0 0.3em 0 var(--gfx-line) !important; }
 ${F} .arena .cbt[data-gfx-sd] .ava, ${F} .arena .cbt[data-gfx-foe] .ava { background: none !important; border: 0 !important; outline: 0; box-shadow: none !important; }
 ${F} .arena .cbt[data-gfx-foe] .ava > svg { display: none; }
-${F} .arena .cbt[data-gfx-sd] > img.gfx-sd { left: -20% !important; right: auto !important; width: 140% !important; height: 92% !important; bottom: 2% !important; z-index: 1; }
+${F} .arena .cbt[data-gfx-sd] > img.gfx-sd { left: -20% !important; right: auto !important; width: 140% !important; height: calc(92% * var(--hf, 1)) !important; bottom: 2% !important; z-index: 1; }
 ${F} .arena .cbt > .gfx-foe { position: absolute; left: 0; right: 0; bottom: 2%; height: 62%; z-index: 1; display: grid; place-items: end center; pointer-events: none; transform-origin: 50% 100%; }
 ${F} .arena .cbt > .gfx-foe svg { width: 100%; height: 100%; overflow: visible; filter: ${STICKER}; }
 /* Name and HP float over the head as a little plate. */
@@ -549,7 +549,7 @@ ${TM} .slot[data-gfx-sd] { overflow: visible !important; }
 ${TM} .slot[data-gfx-sd] .slot-art { background: radial-gradient(70% 40% at 50% 92%, color-mix(in srgb, var(--gfx-line) 30%, transparent), transparent 70%),
   linear-gradient(170deg, var(--gfx-sky1), var(--gfx-sky2)) !important; }
 ${TM} .slot[data-gfx-sd] .slot-art img { opacity: 0 !important; }
-${TM} .slot[data-gfx-sd] > img.gfx-sd { position: absolute; left: -10%; width: 120%; bottom: 14%; height: 108%; object-fit: contain; object-position: 50% 100%;
+${TM} .slot[data-gfx-sd] > img.gfx-sd { position: absolute; left: -10%; width: 120%; bottom: 14%; height: calc(108% * var(--hf, 1)); object-fit: contain; object-position: 50% 100%;
   filter: ${STICKER}; pointer-events: none; z-index: 2; animation: gfx-float 2.6s ease-in-out infinite; }
 ${TM} .slot.filled:nth-child(2) > img.gfx-sd { animation-delay: -0.9s; } ${TM} .slot.filled:nth-child(3) > img.gfx-sd { animation-delay: -1.7s; }
 @keyframes gfx-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6%); } }
@@ -561,7 +561,7 @@ ${TM} .slot.filled:nth-child(2) > img.gfx-sd { animation-delay: -0.9s; } ${TM} .
 .gfx-team.win > span { animation: gfx-cheer 0.9s cubic-bezier(.4,0,.6,1) infinite; }
 .gfx-team.win > span::after { animation: gfx-shadow 0.9s ease-in-out infinite; }
 @keyframes gfx-cheer { 0%, 100% { transform: translateY(0) scale(1.06, 0.94); } 50% { transform: translateY(-22%) scale(0.96, 1.05); } }
-.gfx-team img { max-width: 140%; max-height: 100%; object-fit: contain; filter: ${STICKER}; }
+.gfx-team img { max-width: 140%; max-height: calc(100% * var(--hf, 1)); object-fit: contain; filter: ${STICKER}; }
 .gfx-team img.portrait { width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; border-radius: 14px; border: 3px solid #fff; outline: 2.5px solid var(--gfx-line, #6B4528); filter: none; }
 
 /* ── Home lobby ─────────────────────────────────────────────────────────────────────────────────── */
@@ -609,7 +609,7 @@ ${LB} .hm-cta .title, ${LB} .hm-cta .nodes { display: none !important; }
 ${LB} .hm-cta .big { font-size: calc(var(--f) * 2.2) !important; line-height: 1 !important; }
 ${LB} .hm-slot-bg { opacity: 0.85; }
 /* Placed by the roaming loop with a single transform (position, then depth scale round the feet). */
-.gfx-lobby .who { position: absolute; left: 0; top: 0; height: 40%; aspect-ratio: 2 / 3; transform-origin: 0 0; will-change: transform;
+.gfx-lobby .who { position: absolute; left: 0; top: 0; height: calc(40% * var(--hf, 1)); aspect-ratio: 2 / 3; transform-origin: 0 0; will-change: transform;
   pointer-events: auto; cursor: pointer; touch-action: none; }
 .gfx-lobby .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-bob 1.9s ease-in-out infinite; animation-delay: var(--bdl, 0s); }
 /* The image fills its box exactly; the box takes the image's own proportions (set on load), so the
@@ -908,9 +908,23 @@ img.baked { filter: none !important; }
       ox.restore();
       for (let a = 0; a < 16; a++) ox.drawImage(sil, Math.cos((a / 16) * Math.PI * 2) * r, Math.sin((a / 16) * Math.PI * 2) * r);
       ox.drawImage(im, pad, pad, W, Hh);
-      const blob = await new Promise((res) => out.toBlob(res, "image/png"));
+      // Trim the empty margin, so the feet are the picture's bottom edge; keep how much of the drawn picture
+      // the character fills (hf), so a small character stays small instead of being blown up to the box.
+      const px0 = ox.getImageData(0, 0, cw, ch).data;
+      let x0 = cw, y0 = ch, x1 = -1, y1 = -1;
+      for (let y = 0; y < ch; y++) {
+        const row = y * cw * 4;
+        for (let x = 0; x < cw; x++) if (px0[row + x * 4 + 3] > 10) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      }
+      if (x1 < 0) { x0 = 0; y0 = 0; x1 = cw - 1; y1 = ch - 1; }
+      const kw = x1 - x0 + 1, kh = y1 - y0 + 1;
+      const crop = document.createElement("canvas");
+      crop.width = kw; crop.height = kh;
+      crop.getContext("2d").drawImage(out, -x0, -y0);
+      const blob = await new Promise((res) => crop.toBlob(res, "image/png"));
       if (!blob) throw Error("no blob");
-      const info = { url: URL.createObjectURL(blob), px: pad / cw, py: pad / ch };
+      // A point of the raw art (0–1) lands at (ox + x·mx, oy + y·my) of the baked one.
+      const info = { url: URL.createObjectURL(blob), mx: W / kw, ox: (pad - x0) / kw, my: Hh / kh, oy: (pad - y0) / kh, hf: Math.min(1, kh / Hh) };
       bakedMap.set(url, info);
       // Every sprite already on screen with the raw art swaps to the baked one in place: no rebuild, no restart.
       for (const img of gameRoot()?.querySelectorAll("img[data-raw]") || []) if (img.dataset.raw === url) setSprite(img, url, img.style.scale === "-1 1");
@@ -923,7 +937,11 @@ img.baked { filter: none !important; }
     const src = b ? b.url : url;
     if (img.getAttribute("src") !== src) img.setAttribute("src", src);
     img.classList.toggle("baked", !!b);
-    if (b) { img.dataset.padx = String(b.px); img.dataset.pady = String(b.py); } else { delete img.dataset.padx; delete img.dataset.pady; }
+    for (const k of ["mx", "ox", "my", "oy", "hf"]) { if (b) img.dataset[k] = String(b[k]); else delete img.dataset[k]; }
+    // The character's own height: rules size sprites as a share of their box times --hf.
+    const hf = b ? String(b.hf) : "1";
+    if (img.style.getPropertyValue("--hf") !== hf) img.style.setProperty("--hf", hf);
+    if (b && img.parentElement?.closest) { const box = img.closest(".gfx-lobby .who, .gfx-vn-cast .who"); if (box && box.style.getPropertyValue("--hf") !== hf) box.style.setProperty("--hf", hf); }
     if (img.dataset.raw !== url) img.dataset.raw = url;
     const scale = flip ? "-1 1" : "";
     if (img.style.scale !== scale) img.style.scale = scale;
@@ -1060,7 +1078,10 @@ img.baked { filter: none !important; }
         layer.append(n);
       }
       n.style.left = xs[i] + "%";
-      setSprite(n.querySelector("img"), sdUrl(name), needFlip(name, xs[i] < 50 ? "right" : xs[i] > 50 ? "left" : ""));
+      const im = n.querySelector("img");
+      setSprite(im, sdUrl(name), needFlip(name, xs[i] < 50 ? "right" : xs[i] > 50 ? "left" : ""));
+      if (im.naturalWidth && im.naturalHeight) { const ar = im.naturalWidth + " / " + im.naturalHeight; if (n.style.aspectRatio !== ar) n.style.aspectRatio = ar; }
+      else im.addEventListener("load", () => { n.style.aspectRatio = im.naturalWidth + " / " + im.naturalHeight; }, { once: true });
       const speaking = name === speaker;
       if (speaking !== n.hasAttribute("data-speaking")) {
         if (speaking) { n.setAttribute("data-speaking", ""); n.removeAttribute("data-hop"); void n.offsetWidth; n.setAttribute("data-hop", ""); }
@@ -1186,8 +1207,8 @@ img.baked { filter: none !important; }
       rFrac = Math.max(rFrac, 0.1);
       img.dataset.freePinch = "1";
     } else delete img.dataset.freePinch;
-    const px = Number(img.dataset.padx) || 0, py = Number(img.dataset.pady) || 0;
-    if ((px || py) && !cheeks[0].free) { cheeks = cheeks.map((c) => ({ x: px + c.x * (1 - 2 * px), y: py + c.y * (1 - 2 * py) })); rFrac *= 1 - 2 * px; }
+    const mx = Number(img.dataset.mx), my = Number(img.dataset.my), ox = Number(img.dataset.ox) || 0, oy = Number(img.dataset.oy) || 0;
+    if (mx && my && !cheeks[0].free) { cheeks = cheeks.map((c) => ({ x: ox + c.x * mx, y: oy + c.y * my })); rFrac *= mx; }
     const box = img.getBoundingClientRect();
     if (!box.width || !box.height) return false;
     const mirrored = mirroredIn(img, stop);
@@ -1489,7 +1510,10 @@ img.baked { filter: none !important; }
     const st = roamState(c);
     if (lobbyEdit && c.name === lobbyPicked) who.style.outlineStyle = "solid";
     const flip = el("div", "flip"), body = el("div", "body"), img = el("img");
-    const fit = () => { if (img.naturalWidth && img.naturalHeight) who.style.aspectRatio = img.naturalWidth + " / " + img.naturalHeight; };
+    const fit = () => {
+      if (img.naturalWidth && img.naturalHeight) who.style.aspectRatio = img.naturalWidth + " / " + img.naturalHeight;
+      who.style.setProperty("--hf", img.dataset.hf || "1");
+    };
     img.addEventListener("load", fit);
     setSprite(img, c.url, false);
     if (img.complete) fit();
