@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.5.0 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.6.0 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -132,13 +132,28 @@
       return data && data.value && typeof data.value === "object" ? data.value : {};
     } catch { return {}; }
   }
+  /* Marinara rejects a write from a browser that is not on 127.0.0.1 (another device, Tailscale, a proxy)
+   * unless it carries this header — its own pages send it on every write. Without it every SD and setting
+   * this extension saved from such a device was refused, though the pictures had reached the gallery. */
+  const CSRF = { "x-marinara-csrf": "1" };
+  const JSON_HEADERS = { "Content-Type": "application/json", ...CSRF };
+  // A write that still fails is kept in this browser and sent again, so it is never lost.
+  const PENDING = "gfx-ui-style-pending";
+  let lastStoreError = "";
+  const readPending = () => { try { const v = JSON.parse(localStorage.getItem(PENDING) || "{}"); return v && typeof v === "object" ? v : {}; } catch { return {}; } };
   async function storePatch(patch) {
-    if (!storeUrl) return false;
-    try {
-      const res = await fetch(storeUrl, { method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
-      return res.ok;
-    } catch { return false; }
+    const all = { ...readPending(), ...patch };
+    if (storeUrl) {
+      try {
+        const res = await fetch(storeUrl, { method: "PATCH", credentials: "same-origin", headers: JSON_HEADERS, body: JSON.stringify(all) });
+        if (res.ok) { try { localStorage.removeItem(PENDING); } catch {} lastStoreError = ""; return true; }
+        lastStoreError = "HTTP " + res.status + " " + ((await res.json().catch(() => null))?.error || "");
+      } catch (e) { lastStoreError = e.message; }
+    } else lastStoreError = "확장 ID 없음";
+    try { localStorage.setItem(PENDING, JSON.stringify(all)); } catch {}
+    return false;
   }
+  const retryTimer = setInterval(() => { if (!disposed && Object.keys(readPending()).length) storePatch({}); }, 15000);
   let saveTimer = 0;
   function savePrefs() {
     try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {}
@@ -592,8 +607,9 @@ ${LB} .hm-cta { width: auto !important; height: auto !important; min-height: 0 !
 ${LB} .hm-cta .title, ${LB} .hm-cta .nodes { display: none !important; }
 ${LB} .hm-cta .big { font-size: calc(var(--f) * 2.2) !important; line-height: 1 !important; }
 ${LB} .hm-slot-bg { opacity: 0.85; }
-.gfx-lobby .who { position: absolute; translate: -50% -100%; height: calc(40% * var(--s, 1)); aspect-ratio: 2 / 3; pointer-events: auto; cursor: pointer;
-  animation: gfx-wander var(--d, 11s) ease-in-out infinite; animation-delay: var(--dl, 0s); }
+/* Placed by the roaming loop with a single transform (position, then depth scale round the feet). */
+.gfx-lobby .who { position: absolute; left: 0; top: 0; height: 40%; aspect-ratio: 2 / 3; transform-origin: 0 0; will-change: transform;
+  pointer-events: auto; cursor: pointer; touch-action: none; }
 .gfx-lobby .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-bob 1.9s ease-in-out infinite; animation-delay: var(--bdl, 0s); }
 .gfx-lobby .who img { max-width: 150%; max-height: 100%; object-fit: contain; filter: ${STICKER}; -webkit-user-drag: none; user-select: none; }
 .gfx-lobby .who::after { content: ""; position: absolute; bottom: -3%; left: 20%; right: 20%; height: 7%; border-radius: 50%; z-index: -1;
@@ -604,16 +620,12 @@ ${LB} .hm-slot-bg { opacity: 0.85; }
   background: var(--gfx-card); border: 2.5px solid var(--gfx-line); border-radius: 14px; box-shadow: 0 0.15em 0 var(--gfx-line); animation: gfx-pop 300ms ease both; }
 .gfx-lobby .who .say::after { content: ""; position: absolute; top: 100%; left: 50%; translate: -50% -1px; border: 0.45em solid transparent; border-top-color: var(--gfx-line); }
 /* Walking is the box sliding; turning round is only the sprite flipping, so the speech bubble never mirrors. */
-.gfx-lobby .who .flip { position: absolute; inset: 0; animation: gfx-flip var(--d, 11s) linear infinite; animation-delay: var(--dl, 0s); }
-@keyframes gfx-wander { 0%, 100% { transform: translateX(0); } 40%, 48% { transform: translateX(70%); } 88%, 96% { transform: translateX(0); } }
-@keyframes gfx-flip { 0%, 44% { transform: scaleX(1); } 44.01%, 92% { transform: scaleX(-1); } 92.01%, 100% { transform: scaleX(1); } }
-@keyframes gfx-flip-l { 0%, 44% { transform: scaleX(-1); } 44.01%, 92% { transform: scaleX(1); } 92.01%, 100% { transform: scaleX(-1); } }
-.gfx-lobby .who[data-face="left"] .flip { animation-name: gfx-flip-l; }
-.gfx-lobby .who[data-face="front"] .flip { animation: none; }
-.gfx-lobby .who[data-talk], .gfx-lobby .who[data-talk] .flip { animation-play-state: paused; }
-.gfx-lobby .who { touch-action: none; }
-.gfx-lobby .who[data-pinch], .gfx-lobby .who[data-pinch] .flip, .gfx-lobby .who[data-pinch] .body { animation-play-state: paused !important; cursor: grabbing; }
-.gfx-lobby[data-edit] .who, .gfx-lobby[data-edit] .who .flip { animation: none; outline: 2.5px dashed var(--gfx-accent); outline-offset: 2px; border-radius: 12px; cursor: grab; touch-action: none; }
+.gfx-lobby .who .flip { position: absolute; inset: 0; transition: transform 160ms ease; }
+/* Walking is a quicker, bouncier step than standing still. */
+.gfx-lobby .who[data-walk] .body { animation: gfx-step 0.44s ease-in-out infinite; }
+@keyframes gfx-step { 0%, 100% { transform: translateY(0) scale(1.02, 0.98); } 50% { transform: translateY(-3.5%) scale(0.98, 1.03); } }
+.gfx-lobby .who[data-pinch] .body { animation-play-state: paused !important; cursor: grabbing; }
+.gfx-lobby[data-edit] .who { outline: 2.5px dashed var(--gfx-accent); outline-offset: 2px; border-radius: 12px; cursor: grab; }
 .gfx-lobby[data-edit] .who .body { animation: none; }
 .gfx-lobby[data-edit] { background: color-mix(in srgb, var(--gfx-ink) 25%, transparent); pointer-events: auto; }
 .gfx-lobby-tools { position: absolute; left: 50%; top: 2%; translate: -50% 0; display: flex; gap: 0.5em; pointer-events: auto; z-index: 500; }
@@ -753,7 +765,7 @@ img.baked { filter: none !important; }
       try {
         const res = await fetch("/api/fonts/google/download", {
           method: "POST", credentials: "same-origin",
-          headers: { "Content-Type": "application/json" }, body: JSON.stringify({ family }),
+          headers: JSON_HEADERS, body: JSON.stringify({ family }),
         });
         if (!res.ok && res.status !== 409) failed = ((await res.json().catch(() => null))?.error) || "HTTP " + res.status;
       } catch (e) { failed = e.message; }
@@ -768,7 +780,7 @@ img.baked { filter: none !important; }
   const runId = () => { const h = host(); return h && h._run && h._run.runId ? String(h._run.runId) : ""; };
   async function gf(path, body) {
     const res = await fetch("/api/gacha-forge" + path, {
-      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      method: "POST", credentials: "same-origin", headers: JSON_HEADERS, body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data || data.ok === false) throw Error((data && data.error) || "HTTP " + res.status);
@@ -792,10 +804,12 @@ img.baked { filter: none !important; }
       const [ro, stored] = await Promise.all([gf("/roster", { runId: w.id }), storeGet()]);
       w.cards = (ro.cards || []).filter((c) => c && c.kind === "character" && c.name);
       w.byPortrait = new Map(w.cards.filter((c) => c.portrait).map((c) => [pathOf(c.portrait), c.name]));
-      const sd = stored["sd:" + w.id];
-      w.sd = sd && typeof sd === "object" ? sd : {};
+      const sd = stored["sd:" + w.id], waiting = readPending()["sd:" + w.id];
+      w.sd = { ...(sd && typeof sd === "object" ? sd : {}), ...(waiting && typeof waiting === "object" ? waiting : {}) };
       if (stored.prefs) { prefs = normalizePrefs(stored.prefs); try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {} }
       w.state = "ready";
+      // SDs drawn but never recorded (the refused saves): find them in the gallery.
+      if (w.cards.some((c) => !w.sd[c.name]?.url)) recoverSd(true);
     } catch (e) {
       w.state = "error";
       w.note = "캐릭터 목록을 읽지 못했습니다: " + e.message;
@@ -1133,7 +1147,7 @@ img.baked { filter: none !important; }
     const w = world();
     if (!w) return;
     w.sd = { ...w.sd, [name]: { ...(w.sd[name] || {}), ...patch } };
-    if (!(await storePatch({ ["sd:" + w.id]: w.sd }))) w.note = "서버에 저장하지 못했습니다.";
+    if (!(await storePatch({ ["sd:" + w.id]: w.sd }))) w.note = "이 브라우저에 보관했습니다. 서버 기록은 다시 시도합니다 (" + lastStoreError + ").";
   }
   function talk(who, text, ms = 2400) {
     who.querySelector(":scope > .say")?.remove();
@@ -1341,7 +1355,7 @@ img.baked { filter: none !important; }
       // Two rows: the front row low and large, the back row higher up between them.
       const n = list.length, back = n > 2 && i % 2 === 1;
       const auto = n === 1 ? 50 : 10 + (i * 80) / (n - 1);
-      return { name: c.name, url: sdUrl(c.name), x: Number.isFinite(e.x) ? e.x : auto, y: Number.isFinite(e.y) ? e.y : back ? 80 : 104, s: e.s || 1 };
+      return { name: c.name, url: sdUrl(c.name), x: Number.isFinite(e.x) ? e.x : auto, y: Number.isFinite(e.y) ? Math.min(106, Math.max(68, e.y)) : back ? 80 : 100, s: e.s || 1 };
     });
   }
   function setHome(name, patch) {
@@ -1378,17 +1392,90 @@ img.baked { filter: none !important; }
       lobby.append(lobbyTools());
       const scene = screen.querySelector(":scope > .hm-scene");
       if (scene) scene.after(lobby); else screen.append(lobby);
+      startRoam(lobby);
     }
   }
-  // Perspective: the higher a character's feet stand, the further away — smaller, and behind the ones lower down.
-  const depthScale = (c) => (c.s * (0.6 + 0.4 * Math.min(1, Math.max(0, (c.y - 62) / 42)))).toFixed(3);
+  /* ── Lobby roaming ──
+   * Each character wanders the floor round the spot it was given in [배치]: walks to a random point, waits,
+   * walks on. The higher its feet stand, the further away it is — smaller, slower, and behind the ones lower
+   * down — and it faces the way it walks. State is kept by name, so a lobby the game redraws carries on from
+   * where everyone was. Only one transform per character is written per frame; nothing is laid out again. */
+  const roam = new Map(); // name -> { x, y, tx, ty, ax, ay, s, face, wait, dir }
+  const FLOOR = { x0: 5, x1: 95, y0: 68, y1: 106 }, RANGE = { x: 24, y: 18 };
+  let lobbySize = { w: 0, h: 0 }, lobbyRO = null, roamFrame = 0, roamLast = 0;
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const depthOf = (y) => clamp((y - FLOOR.y0) / (FLOOR.y1 - FLOOR.y0), 0, 1);
+  function roamState(c) {
+    let st = roam.get(c.name);
+    if (!st) { st = { x: c.x, y: c.y, tx: c.x, ty: c.y, wait: 0.4 + Math.random() * 2.6, dir: Math.random() < 0.5 ? -1 : 1 }; roam.set(c.name, st); }
+    // A moved anchor (from [배치]) takes the character there.
+    if (st.ax !== undefined && (st.ax !== c.x || st.ay !== c.y)) { st.x = st.tx = c.x; st.y = st.ty = c.y; st.wait = 1 + Math.random() * 2; }
+    st.ax = c.x; st.ay = c.y; st.s = c.s; st.face = faceOf(c.name);
+    if (lobbyEdit) { st.x = st.tx = c.x; st.y = st.ty = c.y; }
+    return st;
+  }
+  function placeWho(who, st) {
+    const { w, h } = lobbySize;
+    if (!w || !h) return;
+    const k = st.s * (0.55 + 0.45 * depthOf(st.y));
+    who.style.transform = "translate(" + ((st.x / 100) * w).toFixed(1) + "px," + ((st.y / 100) * h).toFixed(1) + "px) scale(" + k.toFixed(3) + ") translate(-50%,-100%)";
+    const z = String(Math.round(st.y * 10));
+    if (who.style.zIndex !== z) who.style.zIndex = z;
+    // Art facing right is mirrored to walk left, art facing left to walk right; front-facing art never turns.
+    const flip = st.face === "right" ? st.dir < 0 : st.face === "left" ? st.dir > 0 : false;
+    const f = flip ? "scaleX(-1)" : "", fl = who.firstElementChild;
+    if (fl && fl.style.transform !== f) fl.style.transform = f;
+  }
+  function pickTarget(st) {
+    st.tx = clamp(st.ax + (Math.random() * 2 - 1) * RANGE.x, FLOOR.x0, FLOOR.x1);
+    st.ty = clamp(st.ay + (Math.random() * 2 - 1) * RANGE.y, FLOOR.y0, FLOOR.y1);
+  }
+  function roamTick(t) {
+    roamFrame = 0;
+    const lobby = gameRoot()?.querySelector(".gfx-lobby");
+    if (!lobby || disposed) { roamLast = 0; return; }
+    const dt = roamLast ? Math.min(0.1, (t - roamLast) / 1000) : 0;
+    roamLast = t;
+    for (const who of lobby.children) {
+      if (!who.classList.contains("who")) continue;
+      const st = roam.get(who.getAttribute("data-name"));
+      if (!st) continue;
+      const busy = lobbyEdit || who.hasAttribute("data-talk") || who.hasAttribute("data-pinch");
+      let walking = false;
+      if (!busy && dt) {
+        if (st.wait > 0) { st.wait -= dt; if (st.wait <= 0) pickTarget(st); }
+        else {
+          // Depth counts for more than width, so a walk "into" the room is slower on screen, as it should be.
+          const dx = st.tx - st.x, dy = (st.ty - st.y) * 1.7, dist = Math.hypot(dx, dy);
+          const step = 5.5 * (0.6 + 0.4 * depthOf(st.y)) * dt;
+          if (dist <= step) { st.x = st.tx; st.y = st.ty; st.wait = 1.4 + Math.random() * 3.6; }
+          else {
+            st.x += (dx / dist) * step;
+            st.y += ((dy / dist) * step) / 1.7;
+            if (Math.abs(dx) > 0.4) st.dir = dx > 0 ? 1 : -1;
+            walking = true;
+          }
+        }
+      }
+      if (walking !== who.hasAttribute("data-walk")) { if (walking) who.setAttribute("data-walk", ""); else who.removeAttribute("data-walk"); }
+      placeWho(who, st);
+    }
+    roamFrame = requestAnimationFrame(roamTick);
+  }
+  function startRoam(lobby) {
+    if (!lobbyRO) lobbyRO = new ResizeObserver((entries) => { for (const e of entries) lobbySize = { w: e.contentRect.width, h: e.contentRect.height }; });
+    lobbyRO.disconnect();
+    lobbyRO.observe(lobby);
+    lobbySize = { w: lobby.clientWidth, h: lobby.clientHeight };
+    for (const who of lobby.querySelectorAll(":scope > .who")) { const st = roam.get(who.getAttribute("data-name")); if (st) placeWho(who, st); }
+    if (!roamFrame) roamFrame = requestAnimationFrame(roamTick);
+  }
   function makeWho(c, i) {
     const who = el("div", "who");
     who.setAttribute("data-name", c.name);
-    // Delays come from the clock, so a lobby the game redraws carries on mid-step instead of starting over.
-    const d = 9 + ((i * 3.7) % 6), now = performance.now() / 1000;
-    who.style.cssText = "left:" + c.x + "%;top:" + c.y + "%;--s:" + depthScale(c) + ";z-index:" + Math.round(c.y * 10) + ";--d:" + d.toFixed(1) + "s;--dl:" + (-((now + i * 2.3) % d)).toFixed(2) + "s;--bdl:" + (-((now + i * 0.7) % 1.9)).toFixed(2) + "s";
-    who.setAttribute("data-face", faceOf(c.name));
+    // The idle bob's delay comes from the clock, so a redrawn lobby carries on mid-bob.
+    who.style.setProperty("--bdl", (-((performance.now() / 1000 + i * 0.7) % 1.9)).toFixed(2) + "s");
+    const st = roamState(c);
     if (lobbyEdit && c.name === lobbyPicked) who.style.outlineStyle = "solid";
     const flip = el("div", "flip"), body = el("div", "body"), img = el("img");
     setSprite(img, c.url, false);
@@ -1414,14 +1501,14 @@ img.baked { filter: none !important; }
       lobbyPicked = c.name;
       const box = who.parentElement.getBoundingClientRect();
       who.setPointerCapture(e.pointerId);
+      // The feet keep the offset they had from the pointer, so the character does not jump under it.
+      const at = (ev) => [((ev.clientX - box.left) / box.width) * 100, ((ev.clientY - box.top) / box.height) * 100];
+      const [px0, py0] = at(e), ox = st.x - px0, oy = st.y - py0;
       const move = (ev) => {
-        const x = Math.min(98, Math.max(2, ((ev.clientX - box.left) / box.width) * 100));
-        const y = Math.min(110, Math.max(55, ((ev.clientY - box.top) / box.height) * 100 + 27 * Number(depthScale(c))));
-        who.style.left = x + "%";
-        who.style.top = y + "%";
-        c.x = x; c.y = y;
-        who.style.setProperty("--s", depthScale(c));
-        who.style.zIndex = String(Math.round(y * 10));
+        const [px, py] = at(ev);
+        c.x = st.x = st.tx = clamp(px + ox, FLOOR.x0, FLOOR.x1);
+        c.y = st.y = st.ty = clamp(py + oy, FLOOR.y0, FLOOR.y1);
+        placeWho(who, st);
       };
       const up = () => {
         who.removeEventListener("pointermove", move);
@@ -1802,6 +1889,7 @@ img.baked { filter: none !important; }
     const all = el("div", "st-chips");
     all.style.marginTop = ".7em";
     all.append(chip("없는 캐릭터 전부 그리기", () => makeAll(), { "data-gfx-all": "" }),
+      chip("갤러리에서 되찾기", () => recoverSd(false)),
       chip("대사 만들기 (AI)", () => makeLines(false), { "data-gfx-lines": "" }),
       chip("없는 대사만", () => makeLines(true), { "data-gfx-lines": "" }));
     const list = el("div", "gfx-sd-list");
@@ -2002,7 +2090,7 @@ img.baked { filter: none !important; }
       const prompt = prefs.gen.template.replace(/\{appearance\}/g, appearance || card.name).replace(/\{name\}/g, card.name).replace(/\s+/g, " ").trim();
       const [width, height] = prefs.gen.size.split("x").map(Number);
       const res = await fetch("/api/characters/avatar-generation", {
-        method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+        method: "POST", credentials: "same-origin", headers: JSON_HEADERS,
         body: JSON.stringify({
           connectionId: conn.id, name: "gfx-sd", appearance: prompt, purpose: "avatar", width, height,
           promptOverrides: [{ id: "avatar:gfx-sd", prompt, negativePrompt: prefs.gen.negative }],
@@ -2018,15 +2106,49 @@ img.baked { filter: none !important; }
       form.append("width", String(width));
       form.append("height", String(height));
       form.append("file", blob, "gfx-sd" + extOf(blob.type));
-      const up = await fetch("/api/global-gallery/upload", { method: "POST", credentials: "same-origin", body: form });
+      const up = await fetch("/api/global-gallery/upload", { method: "POST", credentials: "same-origin", headers: CSRF, body: form });
       const saved = await up.json().catch(() => null);
       if (!up.ok || !saved || !saved.url) throw Error((saved && saved.error) || "갤러리 저장 실패 (HTTP " + up.status + ")");
       w.sd = { ...w.sd, [card.name]: { url: saved.url, at: Date.now() } };
-      if (!(await storePatch({ ["sd:" + w.id]: w.sd }))) w.note = "그림은 갤러리에 저장했지만 목록을 서버에 저장하지 못했습니다.";
+      if (!(await storePatch({ ["sd:" + w.id]: w.sd }))) w.note = "그림은 갤러리에 저장했고 이 브라우저에 보관했습니다. 서버 기록은 다시 시도합니다 (" + lastStoreError + ").";
     } catch (e) {
       w.note = card.name + " 그리기 실패: " + e.message;
     } finally {
       w.busy.delete(card.name);
+      refresh();
+    }
+  }
+  /* An SD this extension drew is in the gallery with its prompt, which holds the character's appearance text;
+   * that is enough to tell whose it is. The newest picture wins. */
+  let recovering = false;
+  async function recoverSd(quiet) {
+    const w = world();
+    if (!w || recovering) return;
+    recovering = true;
+    try {
+      const list = await fetch("/api/global-gallery", { credentials: "same-origin" }).then((r) => r.json());
+      const ours = (Array.isArray(list) ? list : []).filter((g) => g && g.url && /chibi only|Transparent background/i.test(g.prompt || ""))
+        .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+      if (!ours.length) { if (!quiet) w.note = "갤러리에서 SD를 찾지 못했습니다."; return; }
+      const want = w.cards.filter((c) => !w.sd[c.name]?.url);
+      const units = await Promise.all(want.map((c) => gf("/unit", { runId: w.id, unitId: c.id }).then((u) => u.unit || {}).catch(() => ({}))));
+      const found = {};
+      want.forEach((c, i) => {
+        const look = String(units[i].appearance || "").replace(/\s+/g, " ").trim().slice(0, 90);
+        if (look.length < 20) return;
+        const hit = ours.find((g) => String(g.prompt || "").replace(/\s+/g, " ").includes(look));
+        if (hit) found[c.name] = { ...(w.sd[c.name] || {}), url: hit.url, at: Date.parse(hit.createdAt) || Date.now() };
+      });
+      const n = Object.keys(found).length;
+      if (n) {
+        w.sd = { ...w.sd, ...found };
+        const ok = await storePatch({ ["sd:" + w.id]: w.sd });
+        w.note = "갤러리에서 SD " + n + "개를 되찾았습니다." + (ok ? "" : " (서버 기록은 다시 시도합니다: " + lastStoreError + ")");
+      } else if (!quiet) w.note = "갤러리의 SD 중 이 세계 캐릭터와 맞는 것을 찾지 못했습니다.";
+    } catch (e) {
+      if (!quiet) w.note = "되찾기 실패: " + e.message;
+    } finally {
+      recovering = false;
       refresh();
     }
   }
@@ -2097,10 +2219,11 @@ img.baked { filter: none !important; }
     paintSprites(root);
     ensureLoadMounted();
   }
+  // Before the next paint, once per frame: the game's redraw and this extension's touches land in the same frame.
   function schedule() {
     if (disposed || scheduled) return;
     scheduled = true;
-    setTimeout(() => { scheduled = false; refresh(); }, 40);
+    requestAnimationFrame(() => { scheduled = false; refresh(); });
   }
   function watch() {
     if (disposed) return;
@@ -2124,6 +2247,14 @@ img.baked { filter: none !important; }
     refresh();
   }
   const interval = setInterval(watch, 1500);
+  // The game element is made when its tab opens (and again on reload): watch for it, so the style is on it in
+  // the same frame rather than up to 1.5s later with the game's own look showing meanwhile.
+  const pageObserver = new MutationObserver((records) => {
+    for (const r of records) for (const n of r.addedNodes) {
+      if (n.nodeType === 1 && (n.localName === HOST_TAG || n.querySelector?.(HOST_TAG))) { watch(); return; }
+    }
+  });
+  pageObserver.observe(document.documentElement, { childList: true, subtree: true });
   const loadTick = setInterval(tickLoading, 120);
   watch();
   loadFonts();
@@ -2139,6 +2270,10 @@ img.baked { filter: none !important; }
     clearInterval(interval);
     clearInterval(loadTick);
     clearInterval(chatter);
+    clearInterval(retryTimer);
+    pageObserver.disconnect();
+    if (roamFrame) cancelAnimationFrame(roamFrame);
+    lobbyRO?.disconnect();
     observer?.disconnect();
     const h = host(), root = h?.shadowRoot;
     for (const a of [ATTR, "data-gfx-box", "data-gfx-sticker", "data-gfx-motion", "data-gfx-field", "data-gfx-team", "data-gfx-hideplate", "data-gfx-attend", "data-gfx-phase", "data-gfx-lobby"]) h?.removeAttribute(a);
