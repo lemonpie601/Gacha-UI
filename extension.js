@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.12 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.13 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -92,8 +92,10 @@
     try { const v = localStorage.getItem(STORE); return STYLES.some(([id]) => id === v) ? v : ""; }
     catch { return ""; }
   }
-  function writeStyle(v) {
+  // The pick is kept in this browser for the first frame and in the server prefs for every other device.
+  function writeStyle(v, share = true) {
     try { if (v) localStorage.setItem(STORE, v); else localStorage.removeItem(STORE); } catch {}
+    if (share && typeof prefs === "object" && prefs) { prefs.style = v || ""; savePrefs(); }
   }
   let current = readStyle();
 
@@ -137,7 +139,8 @@
     };
     const lobbyScale = typeof p.lobbyScale === "number" && Number.isFinite(p.lobbyScale) ? Math.min(2, Math.max(0.5, p.lobbyScale)) : 1;
     const storyCast = [2, 3, 4, 5].includes(p.storyCast) ? p.storyCast : 3;
-    return { colors, preset: typeof p.preset === "string" ? p.preset : "", opts, gen, home, homeScene, lobbyScale, storyCast };
+    const style = typeof p.style === "string" ? p.style : undefined;
+    return { colors, preset: typeof p.preset === "string" ? p.preset : "", opts, gen, home, homeScene, lobbyScale, storyCast, style };
   }
   let prefs = normalizePrefs((() => { try { return JSON.parse(localStorage.getItem(CACHE) || "null"); } catch { return null; } })());
 
@@ -161,6 +164,22 @@
   }
   // Worlds whose SD list was read from the server this session; only those are written back.
   const sdReadOk = new Set();
+  let prefsReadOk = false;
+  // Server prefs arrive: they win over this device's (unsaved changes still on top), and carry the style pick.
+  function adoptPrefs(v) {
+    prefsReadOk = true;
+    const pend = readPending().prefs;
+    // Settings saved before the style pick was shared: take the server's settings, add this device's pick once.
+    const unshared = current && !(v.prefs && typeof v.prefs.style === "string") && !(pend && typeof pend.style === "string");
+    if (!v.prefs && !pend && !unshared) return false;
+    const next = normalizePrefs({ ...(v.prefs || prefs), ...(pend || {}), ...(unshared ? { style: current } : {}) });
+    if (unshared) storePatch({ prefs: next });
+    let changed = JSON.stringify(next) !== JSON.stringify(prefs);
+    prefs = next;
+    try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {}
+    if (typeof prefs.style === "string" && prefs.style !== current) { current = prefs.style; writeStyle(current, false); changed = true; }
+    return changed;
+  }
   /* A copy of every world's SD list in this browser. It survives a reinstall of the extension (a new ID starts
    * with empty server storage) and fills in lines, cheeks and the rest wherever the server copy lacks them. */
   const SD_BACKUP = "gfx-ui-style-sd-backup";
@@ -191,7 +210,8 @@
     const all = { ...readPending(), ...patch };
     try { localStorage.setItem(PENDING, JSON.stringify(all)); } catch {}
     // An SD list for a world not yet read from the server stays in this browser until a read succeeds.
-    const unread = Object.keys(all).filter((k) => k.startsWith("sd:") && !sdReadOk.has(k.slice(3)));
+    // Same for the settings: a device that has not read them yet must not push its defaults over them.
+    const unread = Object.keys(all).filter((k) => (k.startsWith("sd:") && !sdReadOk.has(k.slice(3))) || (k === "prefs" && !prefsReadOk));
     if (unread.length) {
       const send = { ...all };
       for (const k of unread) delete send[k];
@@ -1213,13 +1233,9 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
         if (JSON.stringify(next) !== JSON.stringify(w.sd)) { w.sd = next; changed = true; }
       }
       const editing = gameRoot()?.activeElement?.matches("input, textarea, select");
-      if (stored.prefs && !editing && !lobbyEdit) {
-        const next = normalizePrefs({ ...stored.prefs, ...(pending.prefs || {}) });
-        if (JSON.stringify(next) !== JSON.stringify(prefs)) {
-          prefs = next; changed = true;
-          try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {}
-        }
-      }
+      // Another device changed the settings (or the style pick): follow it.
+      if (!prefsReadOk) { if (adoptPrefs(stored)) changed = true; storePatch({}); }
+      else if (stored.prefs && !editing && !lobbyEdit && adoptPrefs(stored)) changed = true;
       if (w?.state === "error") await loadWorld();
       if (changed) { refresh(); refreshSprites(); }
     } finally { syncBusy = false; }
@@ -3372,9 +3388,9 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
   loadFonts();
   // Pending browser changes win until the serialized server write acknowledges them.
   storeGet().then((v) => {
-    if (disposed || !v || (!v.prefs && !readPending().prefs)) return;
-    prefs = normalizePrefs({ ...(v.prefs || {}), ...(readPending().prefs || {}) });
-    try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {}
+    if (disposed || !v) return;
+    if (!adoptPrefs(v)) { if (Object.keys(readPending()).length) storePatch({}); return; }
+    storePatch({});
     refresh();
     paintSettings(true);
   });
