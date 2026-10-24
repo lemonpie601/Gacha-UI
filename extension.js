@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.29 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.30 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -1152,12 +1152,16 @@ ${T} [data-screen="reveal"] .rv-back { background: radial-gradient(circle at 50%
 .gfx-cap svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 1.2cqmin 0 rgba(90,58,36,.35)); }
 .gfx-cap g { transform-box: view-box; }
 /* The seal pops, the flap flips open over the top, the letter rises out glowing, then the envelope sinks away. */
-.gfx-cap .cap-band { transform-origin: 70px 80px; animation: gfx-cap-pop 300ms ease 960ms both; }
-.gfx-cap .cap-top { transform-origin: 70px 40px; animation: gfx-cap-flap 360ms cubic-bezier(.3,1.4,.5,1) 1020ms both; }
-.gfx-cap .cap-letter { animation: gfx-cap-rise 420ms cubic-bezier(.3,1.5,.5,1) 1180ms both; filter: drop-shadow(0 0 4px #fff); }
-.gfx-cap :is(.cap-bot, .cap-front) { transform-origin: 70px 110px; animation: gfx-cap-sink 360ms ease 1300ms both; }
-@keyframes gfx-cap-flap { to { transform: scaleY(-1); } }
-@keyframes gfx-cap-rise { to { transform: translateY(-46px) scale(1.12); } }
+/* The seal pops, the closed flap folds up out of sight, the open flap rises behind the letter, and the letter
+ * slides up out of the pocket glowing. */
+.gfx-cap .cap-band { transform-origin: 70px 80px; animation: gfx-cap-pop 260ms ease 880ms both; }
+.gfx-cap .cap-top { transform-origin: 70px 40px; animation: gfx-cap-fold 140ms ease-in 960ms both; }
+.gfx-cap .cap-open { transform-origin: 70px 42px; animation: gfx-cap-unfold 200ms cubic-bezier(.3,1.5,.5,1) 1090ms both; }
+.gfx-cap .cap-letter { animation: gfx-cap-rise 300ms cubic-bezier(.3,1.4,.5,1) 1160ms both; }
+.gfx-cap :is(.cap-bot, .cap-front, .cap-open) { transform-box: view-box; }
+@keyframes gfx-cap-fold { to { transform: scaleY(0); } }
+@keyframes gfx-cap-unfold { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes gfx-cap-rise { to { transform: translateY(-30px) scale(1.06); filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 14px var(--cap, #fff)); } }
 @keyframes gfx-cap-pop { 40% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(.2); opacity: 0; } }
 @keyframes gfx-cap-drop { 0% { transform: translateY(-120cqh) rotate(-20deg); } 70% { transform: translateY(0) scale(1.08, .9); } 100% { transform: translateY(0) scale(1); } }
 @keyframes gfx-cap-wobble { 0%, 100% { rotate: 0deg; } 20% { rotate: -14deg; } 45% { rotate: 12deg; } 70% { rotate: -7deg; } 85% { rotate: 4deg; } }
@@ -1690,6 +1694,8 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
   // A recruitment letter: the flap carries the best card's colour, a heart wax seal holds it shut.
   const CAPSULE_SVG = (col) => '<svg viewBox="0 0 140 120" aria-hidden="true">'
     + '<g class="cap-bot"><rect x="10" y="40" width="120" height="70" rx="10" fill="#F4E2BC" stroke="#5A3A24" stroke-width="5" stroke-linejoin="round"/></g>'
+    + '<g class="cap-open"><path d="M12 42 L63 -10 Q70 -16 77 -10 L128 42 Z" style="fill:' + col + '" stroke="#5A3A24" stroke-width="5" stroke-linejoin="round"/>'
+    + '<path d="M30 36 L64 0" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".45"/></g>'
     + '<g class="cap-letter"><rect x="24" y="46" width="92" height="58" rx="6" fill="#FFFDF5" stroke="#5A3A24" stroke-width="4"/>'
     + '<path d="M36 62 H104 M36 74 H96 M36 86 H84" stroke="#C9A97A" stroke-width="4" stroke-linecap="round"/>'
     + '<path d="M70 52 l3.2 6.4 7 .9 -5.1 4.9 1.3 7 -6.4-3.4 -6.4 3.4 1.3-7 -5.1-4.9 7-.9z" style="fill:' + col + '" stroke="#5A3A24" stroke-width="2"/></g>'
