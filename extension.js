@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.14 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.15 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -18,6 +18,15 @@
   if (typeof window[KEY] === "function") {
     try { window[KEY](); } catch {}
   }
+
+  /* Every request this extension makes carries the admin secret the way Gacha Forge's own requests do. On a
+   * device other than the server's own (phone, tablet, another PC) Marinara refuses requests without it —
+   * "Invalid or missing X-Admin-Secret header" — and the character list never loaded there. */
+  const ADMIN_SECRET_KEY = "marinara_admin_secret";
+  function adminHeaders() {
+    try { const t = (localStorage.getItem(ADMIN_SECRET_KEY) || "").trim(); return t ? { "X-Admin-Secret": t } : {}; } catch { return {}; }
+  }
+  const fetch = (url, opts = {}) => window.fetch(url, { ...opts, headers: { ...adminHeaders(), ...(opts.headers || {}) } });
 
   const HOST_TAG = "marinara-capability-gacha-forge";
   const ATTR = "data-gfx-style";
