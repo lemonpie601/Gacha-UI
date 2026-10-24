@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.2.0 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.3.0 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -321,6 +321,19 @@ ${T} .vn-plate[data-gfx-sd] > img.gfx-sd {
 }
 ${T} .vn-plate[data-gfx-sd][data-side="left"] > img.gfx-sd { scale: -1 1; }
 
+/* The cast line-up: large SDs standing behind the dialogue box (the box is the game's, untouched). */
+${T} .vn-plate[data-gfx-sd] { opacity: 0 !important; }
+.gfx-vn-cast { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+.gfx-vn-cast .who { position: absolute; bottom: -14%; height: 92%; aspect-ratio: 0.68; translate: -50% 0; z-index: 1;
+  filter: brightness(0.6) saturate(0.85); scale: 0.94; transform-origin: 50% 100%;
+  transition: left 420ms cubic-bezier(.3,1.3,.5,1), filter 250ms ease, scale 250ms ease; animation: gfx-cast-in 380ms ease both; }
+.gfx-vn-cast .who[data-speaking] { filter: none; scale: 1; z-index: 2; }
+.gfx-vn-cast .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-breathe 3.4s ease-in-out infinite; }
+.gfx-vn-cast .who[data-hop] .body { animation: gfx-talk-hop 380ms ease, gfx-breathe 3.4s ease-in-out 380ms infinite; }
+.gfx-vn-cast img { max-width: 100%; max-height: 100%; object-fit: contain; filter: ${STICKER}; -webkit-user-drag: none; }
+@keyframes gfx-cast-in { from { opacity: 0; translate: -50% 8%; } to { opacity: 1; translate: -50% 0; } }
+@keyframes gfx-talk-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-3%) scale(0.98, 1.03); } 100% { transform: none; } }
+
 /* ── Battle ────────────────────────────────────────────────────────────────────────────────────── */
 ${T} .cbt .ava { border: 2.5px solid var(--gfx-line) !important; border-radius: 16px !important; clip-path: none !important;
   background: linear-gradient(170deg, var(--gfx-sky1), var(--gfx-sky2)) !important; }
@@ -568,6 +581,8 @@ ${LB} .hm-slot-bg { opacity: 0.85; }
 @keyframes gfx-wander { 0%, 100% { transform: translateX(0); } 40%, 48% { transform: translateX(70%); } 88%, 96% { transform: translateX(0); } }
 @keyframes gfx-flip { 0%, 44% { transform: scaleX(1); } 44.01%, 92% { transform: scaleX(-1); } 92.01%, 100% { transform: scaleX(1); } }
 .gfx-lobby .who[data-talk], .gfx-lobby .who[data-talk] .flip { animation-play-state: paused; }
+.gfx-lobby .who { touch-action: none; }
+.gfx-lobby .who[data-pinch], .gfx-lobby .who[data-pinch] .flip, .gfx-lobby .who[data-pinch] .body { animation-play-state: paused !important; cursor: grabbing; }
 .gfx-lobby[data-edit] .who, .gfx-lobby[data-edit] .who .flip { animation: none; outline: 2.5px dashed var(--gfx-accent); outline-offset: 2px; border-radius: 12px; cursor: grab; touch-action: none; }
 .gfx-lobby[data-edit] .who .body { animation: none; }
 .gfx-lobby[data-edit] { background: color-mix(in srgb, var(--gfx-ink) 25%, transparent); pointer-events: auto; }
@@ -629,6 +644,18 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
 .gfx-field { display: flex; flex-direction: column; gap: 0.3em; margin-top: 0.7em; font-size: var(--t-xs, 12px); color: var(--steel-faint); }
 .gfx-field select, .gfx-field textarea { font: inherit; font-size: var(--t-xs, 12px); color: var(--text); background: var(--surface, #fff);
   border: 2px solid var(--steel-dark); border-radius: 10px; padding: 0.45em 0.6em; }
+.gfx-field input { font: inherit; font-size: var(--t-xs, 12px); color: var(--text); background: var(--surface, #fff);
+  border: 2px solid var(--steel-dark); border-radius: 10px; padding: 0.4em 0.6em; }
+.gfx-sd-edit { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 1em; margin-top: 1em; padding: 0.9em;
+  border: 2px dashed var(--coral); border-radius: 16px; background: var(--ink-2); }
+.gfx-sd-edit[hidden] { display: none; }
+.gfx-cheek-pad { position: relative; height: calc(var(--f, 10px) * 26); display: grid; place-items: center; cursor: crosshair; touch-action: none;
+  border-radius: 12px; background: radial-gradient(70% 50% at 50% 80%, color-mix(in srgb, var(--coral) 15%, transparent), transparent 70%), var(--ink); }
+.gfx-cheek-pad img { position: absolute; inset: 0; margin: auto; max-width: 100%; max-height: 100%; object-fit: contain; -webkit-user-drag: none; user-select: none; }
+.gfx-cheek-pad .mark { position: absolute; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; pointer-events: none;
+  border: 2px dashed var(--coral); background: color-mix(in srgb, var(--coral) 22%, transparent); }
+.gfx-sd-edit-side { display: flex; flex-direction: column; gap: 0.2em; min-width: 0; }
+.gfx-sd-edit-side > b { font-family: var(--display); font-weight: 400; font-size: var(--t-md, 15px); }
 .gfx-field textarea { min-height: 4.2em; resize: vertical; font-family: ui-monospace, Consolas, monospace; }
 .gfx-sd-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5em, 1fr)); gap: 0.7em; margin-top: 0.8em; }
 .gfx-sd-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.35em; padding: 0.6em;
@@ -808,16 +835,18 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     // Matched by portrait first; the speaker's name only when a single portrait is up (an outfit's art is not
     // the roster portrait), so a second figure on screen never wears the speaker's sprite.
     const openCount = plates.filter((p) => p.getAttribute("data-open") === "true").length;
+    // A portrait whose character has an SD steps aside: that character stands in the cast line-up instead.
     for (const plate of plates) {
-      let url = "";
+      let has = false;
       if (on && prefs.opts.storySd && plate.getAttribute("data-open") === "true") {
         const front = plate.getAttribute("data-front") || "a";
         const img = plate.querySelector('.vn-art[data-art="' + front + '"] > img');
-        const name = nameFromImg(img) || (openCount === 1 && who ? who : "");
-        url = sdUrl(name);
+        has = !!sdUrl(nameFromImg(img) || (openCount === 1 && who ? who : ""));
       }
-      if (url || plate.hasAttribute("data-gfx-sd")) placeSd(plate, url);
+      plate.querySelector(":scope > img.gfx-sd")?.remove();
+      if (has !== plate.hasAttribute("data-gfx-sd")) { if (has) plate.setAttribute("data-gfx-sd", ""); else plate.removeAttribute("data-gfx-sd"); }
     }
+    paintVnCast(root, on && prefs.opts.storySd, whoEl && whoEl.hasAttribute("data-narration") ? "" : who);
     const field = on && prefs.opts.field;
     for (const card of root.querySelectorAll(".cbt")) {
       let url = "";
@@ -850,6 +879,50 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     }
   }
   const pick = (list) => (list.length ? list[Math.floor(Math.random() * list.length)] : "");
+
+  /* ── Story cast line-up (Trickcal manner) ──
+   * Everyone with an SD who has spoken in this scene stays on stage, large, standing behind the dialogue box;
+   * the one speaking is bright and in front, the rest dim. A new scene (its caption changes) clears the stage. */
+  const vnCast = { scene: "", names: [] };
+  const CAST_X = { 1: [50], 2: [31, 69], 3: [19, 50, 81], 4: [13, 37, 63, 87] };
+  function paintVnCast(root, enabled, speaker) {
+    const vn = root.querySelector(".vn");
+    let layer = vn && vn.querySelector(":scope > .gfx-vn-cast");
+    if (!vn || !enabled) { layer?.remove(); if (!vn) vnCast.names = []; return; }
+    const scene = (root.querySelector(".vn-caption")?.textContent || "").trim();
+    if (scene !== vnCast.scene) { vnCast.scene = scene; vnCast.names = []; }
+    if (speaker && sdUrl(speaker) && !vnCast.names.includes(speaker)) {
+      vnCast.names.push(speaker);
+      if (vnCast.names.length > 4) vnCast.names.shift();
+    }
+    if (!layer) {
+      layer = el("div", "gfx-vn-cast");
+      vn.prepend(layer);
+    }
+    const names = vnCast.names;
+    const xs = CAST_X[names.length] || [];
+    for (const n of layer.querySelectorAll(":scope > .who")) if (!names.includes(n.getAttribute("data-name"))) n.remove();
+    names.forEach((name, i) => {
+      let n = Array.from(layer.children).find((x) => x.getAttribute("data-name") === name);
+      if (!n) {
+        n = el("div", "who");
+        n.setAttribute("data-name", name);
+        const body = el("div", "body"), img = el("img");
+        img.src = sdUrl(name);
+        img.alt = name;
+        img.draggable = false;
+        body.append(img);
+        n.append(body);
+        layer.append(n);
+      }
+      n.style.left = xs[i] + "%";
+      const speaking = name === speaker;
+      if (speaking !== n.hasAttribute("data-speaking")) {
+        if (speaking) { n.setAttribute("data-speaking", ""); n.removeAttribute("data-hop"); void n.offsetWidth; n.setAttribute("data-hop", ""); }
+        else n.removeAttribute("data-speaking");
+      }
+    });
+  }
 
   /* ── Mochi foes ── */
   // Mushroom foes, the cap in the element's colour (the Trickcal field's little monsters).
@@ -926,6 +999,166 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     }
   }
 
+  /* ── Lines and cheeks, kept per character with its SD entry ──
+   * sd[name] = { url, at, lines: [3], pinch: "", cheeks: [{x, y}] (0–1 of the image), cheekR (share of its width) } */
+  const PINCH_LINES = ["아야야!", "볼 늘리지 마~!", "으에에…", "말랑하다고 막 당기기야?!"];
+  const sdEntry = (name) => { const w = world(); return (w && name && w.sd[name]) || {}; };
+  const linesFor = (name) => { const l = sdEntry(name).lines; return Array.isArray(l) && l.filter(Boolean).length ? l.filter(Boolean) : LOBBY_LINES; };
+  const pinchFor = (name) => sdEntry(name).pinch || pick(PINCH_LINES);
+  const cheeksOf = (name) => { const c = sdEntry(name).cheeks; return Array.isArray(c) && c.length ? c : null; };
+  const cheekR = (name) => { const r = Number(sdEntry(name).cheekR); return r > 0 ? r : 0.085; };
+  async function saveSdEntry(name, patch) {
+    const w = world();
+    if (!w) return;
+    w.sd = { ...w.sd, [name]: { ...(w.sd[name] || {}), ...patch } };
+    if (!(await storePatch({ ["sd:" + w.id]: w.sd }))) w.note = "서버에 저장하지 못했습니다.";
+  }
+  function talk(who, text, ms = 2400) {
+    who.querySelector(":scope > .say")?.remove();
+    const say = el("span", "say", text);
+    who.setAttribute("data-talk", "");
+    who.append(say);
+    setTimeout(() => { say.remove(); if (!who.querySelector(":scope > .say")) who.removeAttribute("data-talk"); }, ms);
+  }
+
+  /* ── Cheek pinch ──
+   * Pressing near a cheek point swaps the sprite for a canvas copy and pulls the pixels around that point toward
+   * the pointer (a liquify-style backward warp: each pixel near the pulled point samples from where it came
+   * from, falling off with distance). Letting go springs it back with a wobble. */
+  function mirroredIn(node, stop) {
+    let m = false;
+    for (let n = node; n && n !== stop; n = n.parentElement) { const t = getComputedStyle(n).transform; if (t && t.startsWith("matrix(-")) m = !m; }
+    return m;
+  }
+  function startPinch(img, e, cheeks, rFrac, stop, done) {
+    if (!img || !img.complete || !img.naturalWidth || !cheeks || !cheeks.length) return false;
+    const box = img.getBoundingClientRect();
+    if (!box.width || !box.height) return false;
+    const mirrored = mirroredIn(img, stop);
+    const lx = mirrored ? box.right - e.clientX : e.clientX - box.left, ly = e.clientY - box.top;
+    const rPx = rFrac * box.width;
+    let best = null, bestD = Infinity;
+    for (const c of cheeks) { const d = Math.hypot(c.x * box.width - lx, c.y * box.height - ly); if (d < bestD) { bestD = d; best = c; } }
+    if (!best || bestD > rPx * 1.6) return false;
+    const w = img.offsetWidth, h = img.offsetHeight, sc = box.width / w;
+    const dpr = Math.min(2, window.devicePixelRatio || 1), cw = Math.max(1, Math.round(w * dpr)), ch = Math.max(1, Math.round(h * dpr));
+    const canvas = el("canvas", "gfx-pinch");
+    canvas.width = cw; canvas.height = ch;
+    canvas.style.cssText = "position:absolute;left:" + img.offsetLeft + "px;top:" + img.offsetTop + "px;width:" + w + "px;height:" + h + "px;pointer-events:none;filter:" + getComputedStyle(img).filter;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    let src;
+    try { ctx.drawImage(img, 0, 0, cw, ch); src = ctx.getImageData(0, 0, cw, ch); } catch { return false; }
+    const out = ctx.createImageData(cw, ch);
+    const cx = best.x * cw, cy = best.y * ch, R = rFrac * cw, maxLen = R * 2.4;
+    function render(dx, dy) {
+      const len = Math.hypot(dx, dy);
+      if (len > maxLen) { dx *= maxLen / len; dy *= maxLen / len; }
+      out.data.set(src.data);
+      const tx = cx + dx, ty = cy + dy, reff = R * 1.25 + Math.min(len, maxLen) * 0.55, r2 = reff * reff;
+      const x0 = Math.max(0, Math.floor(tx - reff)), x1 = Math.min(cw - 1, Math.ceil(tx + reff));
+      const y0 = Math.max(0, Math.floor(ty - reff)), y1 = Math.min(ch - 1, Math.ceil(ty + reff));
+      const s = src.data, o = out.data;
+      for (let y = y0; y <= y1; y++) {
+        const ddy = y - ty;
+        for (let x = x0; x <= x1; x++) {
+          const ddx = x - tx, d2 = ddx * ddx + ddy * ddy;
+          if (d2 >= r2) continue;
+          let f = 1 - d2 / r2; f *= f;
+          const sx = Math.min(cw - 1, Math.max(0, Math.round(x - dx * f))), sy = Math.min(ch - 1, Math.max(0, Math.round(y - dy * f)));
+          const si = (sy * cw + sx) * 4, oi = (y * cw + x) * 4;
+          o[oi] = s[si]; o[oi + 1] = s[si + 1]; o[oi + 2] = s[si + 2]; o[oi + 3] = s[si + 3];
+        }
+      }
+      ctx.putImageData(out, 0, 0);
+    }
+    render(0, 0);
+    img.parentElement.append(canvas);
+    img.style.visibility = "hidden";
+    let dx = 0, dy = 0, frame = 0;
+    const move = (ev) => {
+      ev.preventDefault();
+      dx = ((ev.clientX - e.clientX) / sc) * dpr * (mirrored ? -1 : 1);
+      dy = ((ev.clientY - e.clientY) / sc) * dpr;
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; render(dx, dy); });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      if (frame) cancelAnimationFrame(frame);
+      const d0x = dx, d0y = dy, pulled = Math.hypot(dx, dy) > R * 0.35, t0 = performance.now();
+      const spring = (now) => {
+        const t = now - t0, k = Math.exp(-t / 110) * Math.cos(t / 48);
+        render(d0x * k, d0y * k);
+        if (t < 620) requestAnimationFrame(spring);
+        else { canvas.remove(); img.style.visibility = ""; done && done(pulled); }
+      };
+      requestAnimationFrame(spring);
+    };
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    e.preventDefault();
+    return true;
+  }
+
+  /* ── AI-written lines ──
+   * One call to the world's own text connection writes three lobby lines and one pinch reaction per character,
+   * from the personality and profile Gacha Forge keeps for each. */
+  let linesBusy = false;
+  function modelText(v, depth = 0) {
+    if (depth > 6 || v == null) return "";
+    if (typeof v === "string") return v;
+    if (Array.isArray(v)) return v.map((x) => modelText(x, depth + 1)).filter(Boolean).join("\n");
+    if (typeof v !== "object" || ["reasoning", "thinking", "redacted_thinking"].includes(v.type)) return "";
+    for (const k of ["content", "text", "output_text", "output", "response", "message", "choices", "data", "result"]) { const t = modelText(v[k], depth + 1); if (t) return t; }
+    return "";
+  }
+  async function makeLines(onlyMissing) {
+    const w = world(), run = host()?._run;
+    if (!w || !run || linesBusy) return;
+    const targets = w.cards.filter((c) => !onlyMissing || !(Array.isArray(w.sd[c.name]?.lines) && w.sd[c.name].lines.length));
+    if (!targets.length) { w.note = "모든 캐릭터에 이미 대사가 있습니다."; paintSettings(); return; }
+    linesBusy = true;
+    w.note = "캐릭터 대사를 쓰는 중입니다…";
+    paintSettings();
+    try {
+      const units = await Promise.all(targets.map((c) => gf("/unit", { runId: w.id, unitId: c.id }).then((u) => u.unit || {}).catch(() => ({}))));
+      const cut = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
+      const profiles = targets.map((c, i) => "- " + c.name + " (" + (units[i].role || c.role || "") + ")\n  성격: " + cut(units[i].personality, 400) + "\n  설정: " + cut(units[i].description, 400)).join("\n");
+      const system = "너는 트릭컬 리바이브 같은 귀엽고 유쾌한 모바일 수집형 게임의 로비 대사 작가다. 캐릭터마다 성격과 말투를 살려, 로비에서 플레이어가 캐릭터를 눌렀을 때 하는 짧은 대사 3개와, 볼을 꼬집혀 쭉 늘어났을 때의 반응 1개를 한국어로 쓴다. 각 대사는 25자 이내, 이모지·따옴표 없이, 서로 다른 내용으로. 반드시 JSON 하나만 출력한다: {\"캐릭터 이름\": {\"lines\": [\"대사1\", \"대사2\", \"대사3\"], \"pinch\": \"반응\"}}";
+      const user = "세계: " + cut(run.name, 80) + "\n" + cut(run.scenario, 600) + "\n\n캐릭터:\n" + profiles;
+      const res = await fetch("/api/generate/raw", {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json", "x-marinara-csrf": "1" },
+        body: JSON.stringify({ connectionId: run.connectionId, runId: w.id, streaming: false,
+          messages: [{ role: "system", content: system }, { role: "user", content: user }],
+          parameters: { maxTokens: 2400, temperature: 0.9 } }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw Error(String(body?.error || body?.message || "HTTP " + res.status));
+      const text = modelText(body);
+      const json = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+      let n = 0;
+      const next = { ...w.sd };
+      for (const c of targets) {
+        const got = json[c.name];
+        if (!got || !Array.isArray(got.lines)) continue;
+        next[c.name] = { ...(next[c.name] || {}), lines: got.lines.map((l) => cut(l, 60)).filter(Boolean).slice(0, 3), pinch: cut(got.pinch, 60) };
+        n++;
+      }
+      w.sd = next;
+      await storePatch({ ["sd:" + w.id]: w.sd });
+      w.note = n + "명의 대사를 만들었습니다. 편집에서 고칠 수 있습니다.";
+    } catch (e) {
+      w.note = "대사 만들기 실패: " + e.message;
+    } finally {
+      linesBusy = false;
+      sdEditKey = "";
+      paintSettings();
+    }
+  }
+
   /* ── Home lobby ── */
   let lobbyEdit = false, lobbyPicked = "";
   function homeCast() {
@@ -976,7 +1209,16 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     who.append(flip);
     on(who, "pointerdown", (e) => {
       e.stopPropagation();
-      if (!lobbyEdit) return;
+      if (!lobbyEdit) {
+        // A press on a cheek pulls it; let go and it snaps back with a word from them.
+        who.setAttribute("data-pinch", "");
+        const started = startPinch(img, e, cheeksOf(c.name), cheekR(c.name), who, (pulled) => {
+          who.removeAttribute("data-pinch");
+          if (pulled) { who.removeAttribute("data-squish"); void who.offsetWidth; who.setAttribute("data-squish", ""); talk(who, pinchFor(c.name), 2600); }
+        });
+        if (started) who.setAttribute("data-pinched", ""); else who.removeAttribute("data-pinch");
+        return;
+      }
       e.preventDefault();
       lobbyPicked = c.name;
       const box = who.parentElement.getBoundingClientRect();
@@ -1001,14 +1243,11 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     on(who, "click", (e) => {
       e.stopPropagation();
       if (lobbyEdit) return;
+      if (who.hasAttribute("data-pinched")) { who.removeAttribute("data-pinched"); return; }
       who.removeAttribute("data-squish");
       void who.offsetWidth;
       who.setAttribute("data-squish", "");
-      who.querySelector(":scope > .say")?.remove();
-      const say = el("span", "say", pick(LOBBY_LINES));
-      who.setAttribute("data-talk", "");
-      who.append(say);
-      setTimeout(() => { say.remove(); if (!who.querySelector(".say")) who.removeAttribute("data-talk"); }, 2200);
+      talk(who, pick(linesFor(c.name)), 2400);
     });
     on(who, "wheel", (e) => {
       if (!lobbyEdit) return;
@@ -1050,11 +1289,8 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     if (disposed || lobbyEdit || !current || !prefs.opts.lobby) return;
     const cast = Array.from(gameRoot()?.querySelectorAll(".gfx-lobby .who:not([data-talk])") || []);
     const who = pick(cast);
-    if (!who || document.hidden) return;
-    const say = el("span", "say", pick(LOBBY_LINES));
-    who.setAttribute("data-talk", "");
-    who.append(say);
-    setTimeout(() => { say.remove(); if (!who.querySelector(".say")) who.removeAttribute("data-talk"); }, 2600);
+    if (!who || document.hidden || who.hasAttribute("data-pinch")) return;
+    talk(who, pick(linesFor(who.getAttribute("data-name"))), 2600);
   }, 7000);
 
   /* ── Attendance ── */
@@ -1351,10 +1587,16 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     sizes.append(chip("프롬프트 기본값", () => { prefs.gen.template = DEFAULT_GEN.template; prefs.gen.negative = DEFAULT_GEN.negative; savePrefs(); paintSettings(true); }));
     const all = el("div", "st-chips");
     all.style.marginTop = ".7em";
-    all.append(chip("없는 캐릭터 전부 그리기", () => makeAll(), { "data-gfx-all": "" }));
+    all.append(chip("없는 캐릭터 전부 그리기", () => makeAll(), { "data-gfx-all": "" }),
+      chip("대사 만들기 (AI)", () => makeLines(false), { "data-gfx-lines": "" }),
+      chip("없는 대사만", () => makeLines(true), { "data-gfx-lines": "" }));
     const list = el("div", "gfx-sd-list");
     list.setAttribute("data-gfx-sd-list", "");
-    p.append(conn, tpl, neg, sizes, all, hint("", "sd"), list);
+    const edit = el("div", "gfx-sd-edit");
+    edit.setAttribute("data-gfx-sd-edit", "");
+    edit.hidden = true;
+    p.append(conn, tpl, neg, sizes, all, hint("", "sd"),
+      hint("[대사 만들기]는 이 세계의 AI 연결로 캐릭터마다 성격에 맞는 로비 대사 3개와 볼 꼬집기 반응을 씁니다. 캐릭터의 [편집]에서 볼 위치와 대사를 고칩니다."), list, edit);
     return p;
   }
 
@@ -1362,7 +1604,7 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     const w = world();
     for (const list of root.querySelectorAll("[data-gfx-sd-list]")) {
       const cards = w ? w.cards : [];
-      const keyNow = cards.map((c) => c.name + ":" + (w.sd[c.name]?.url || "") + ":" + (w.busy.has(c.name) ? 1 : 0)).join("|");
+      const keyNow = sdEditing + "/" + cards.map((c) => c.name + ":" + (w.sd[c.name]?.url || "") + ":" + (w.busy.has(c.name) ? 1 : 0)).join("|");
       if (list.getAttribute("data-key") === keyNow) continue;
       list.setAttribute("data-key", keyNow);
       list.textContent = "";
@@ -1378,10 +1620,98 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
         const chips = el("div", "st-chips");
         chips.append(chip(url ? "다시" : "그리기", () => makeSd(c)));
         if (url) chips.append(chip("지우기", () => removeSd(c.name)));
+        chips.append(chip("편집", () => { sdEditing = sdEditing === c.name ? "" : c.name; sdEditKey = ""; paintSettings(); }, { "aria-pressed": String(sdEditing === c.name) }));
         card.append(thumb, el("b", "", c.name), chips);
         list.append(card);
       }
     }
+    paintSdEditor(root);
+  }
+
+  /* ── One character's editor: cheek points on the sprite, its three lines and its pinch reaction ── */
+  let sdEditing = "", sdEditKey = "";
+  function paintSdEditor(root) {
+    const w = world();
+    const c = w && w.cards.find((x) => x.name === sdEditing);
+    for (const box of root.querySelectorAll("[data-gfx-sd-edit]")) {
+      const e = c ? sdEntry(c.name) : {};
+      const key = c ? [c.name, e.url || "", JSON.stringify(e.cheeks || []), cheekR(c.name), JSON.stringify(e.lines || []), e.pinch || ""].join("|") : "";
+      if (box.getAttribute("data-key") === key) continue;
+      box.setAttribute("data-key", key);
+      box.textContent = "";
+      box.hidden = !c;
+      if (!c) continue;
+      const pad = el("div", "gfx-cheek-pad");
+      const side = el("div", "gfx-sd-edit-side");
+      box.append(pad, side);
+      if (e.url) {
+        const img = el("img");
+        img.src = e.url;
+        img.alt = c.name;
+        img.draggable = false;
+        pad.append(img);
+        const marks = () => {
+          for (const m of pad.querySelectorAll(".mark")) m.remove();
+          for (const p of cheeksOf(c.name) || []) {
+            const m = el("i", "mark");
+            m.style.cssText = "left:" + (img.offsetLeft + p.x * img.offsetWidth) + "px;top:" + (img.offsetTop + p.y * img.offsetHeight) + "px;width:" + cheekR(c.name) * 2 * img.offsetWidth + "px";
+            pad.append(m);
+          }
+        };
+        if (img.complete) requestAnimationFrame(marks); else img.addEventListener("load", marks, { once: true });
+        let pinched = false;
+        on(pad, "pointerdown", (ev) => {
+          ev.stopPropagation();
+          pinched = startPinch(img, ev, cheeksOf(c.name), cheekR(c.name), pad, (pulled) => { if (pulled) setEditNote(pinchFor(c.name)); });
+        });
+        on(pad, "click", (ev) => {
+          ev.stopPropagation();
+          if (pinched) { pinched = false; return; }
+          const r = img.getBoundingClientRect();
+          const p = { x: +((ev.clientX - r.left) / r.width).toFixed(3), y: +((ev.clientY - r.top) / r.height).toFixed(3) };
+          if (p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) return;
+          const now = (cheeksOf(c.name) || []).slice();
+          // Two cheeks at most: a third tap moves the nearer one.
+          if (now.length >= 2) now.splice(now.findIndex((q, i, a) => Math.hypot(q.x - p.x, q.y - p.y) === Math.min(...a.map((z) => Math.hypot(z.x - p.x, z.y - p.y)))), 1, p);
+          else now.push(p);
+          saveSdEntry(c.name, { cheeks: now }).then(() => paintSettings());
+        });
+      } else pad.append(el("p", "hint", "먼저 SD를 그려 주세요."));
+      side.append(el("b", "", c.name));
+      side.append(hint("그림에서 볼을 누르면 볼 위치(최대 2곳)가 정해집니다. 정한 곳을 누른 채 끌면 미리 당겨 볼 수 있습니다.", ""));
+      const size = el("div", "st-chips");
+      for (const [r, label] of [[0.06, "볼 작게"], [0.085, "보통"], [0.115, "볼 크게"]]) {
+        const b = chip(label, () => saveSdEntry(c.name, { cheekR: r }).then(() => paintSettings()));
+        b.setAttribute("aria-pressed", String(Math.abs(cheekR(c.name) - r) < 0.001));
+        size.append(b);
+      }
+      size.append(chip("볼 지우기", () => saveSdEntry(c.name, { cheeks: [] }).then(() => paintSettings())));
+      side.append(size);
+      const field = (label, value, save) => {
+        const lab = el("label", "gfx-field");
+        lab.append(el("span", "", label));
+        const input = el("input");
+        input.type = "text";
+        input.maxLength = 60;
+        input.value = value || "";
+        on(input, "click", (ev) => ev.stopPropagation());
+        on(input, "keydown", (ev) => ev.stopPropagation());
+        on(input, "change", () => save(input.value.trim()));
+        lab.append(input);
+        return lab;
+      };
+      const lines = Array.isArray(e.lines) ? e.lines.slice(0, 3) : [];
+      for (let i = 0; i < 3; i++) {
+        side.append(field("대사 " + (i + 1), lines[i], (v) => { const next = (sdEntry(c.name).lines || []).slice(0, 3); while (next.length < 3) next.push(""); next[i] = v; saveSdEntry(c.name, { lines: next }); }));
+      }
+      side.append(field("볼을 꼬집혔을 때", e.pinch, (v) => saveSdEntry(c.name, { pinch: v })));
+      const note = hint("", "");
+      note.setAttribute("data-gfx-edit-note", "");
+      side.append(note);
+    }
+  }
+  function setEditNote(text) {
+    for (const n of gameRoot()?.querySelectorAll("[data-gfx-edit-note]") || []) n.textContent = "“" + text + "”";
   }
 
   function paintSettings(full = false) {
@@ -1420,6 +1750,7 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
       : (w.note ? w.note + " " : "") + w.cards.length + "명 중 " + w.cards.filter((c) => w.sd[c.name]?.url).length + "명의 SD가 있습니다.";
     for (const n of root.querySelectorAll('[data-gfx-note="sd"]')) n.textContent = sdText;
     for (const b of root.querySelectorAll("[data-gfx-all]")) b.disabled = !w || w.state !== "ready" || w.busy.size > 0 || !(connections || []).length;
+    for (const b of root.querySelectorAll("[data-gfx-lines]")) b.disabled = !w || w.state !== "ready" || linesBusy;
     paintSdList(root);
     paintHomeList(root);
   }
@@ -1561,7 +1892,7 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
           ensureLoadMounted();
           for (const r of records) {
             const t = r.target;
-            if (t.nodeType === 1 && t.closest && t.closest("[data-gfx-ui], [data-gfx-plate], .gfx-sd-list, .gfx-lobby, .gfx-team, .gfx-ev-mascot, .gfx-foe")) continue;
+            if (t.nodeType === 1 && t.closest && t.closest("[data-gfx-ui], [data-gfx-plate], .gfx-sd-list, .gfx-lobby, .gfx-team, .gfx-ev-mascot, .gfx-foe, .gfx-vn-cast")) continue;
             return schedule();
           }
         });
@@ -1590,7 +1921,7 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     const h = host(), root = h?.shadowRoot;
     for (const a of [ATTR, "data-gfx-box", "data-gfx-sticker", "data-gfx-motion", "data-gfx-field", "data-gfx-team", "data-gfx-hideplate", "data-gfx-attend", "data-gfx-phase", "data-gfx-lobby"]) h?.removeAttribute(a);
     if (root) root.adoptedStyleSheets = root.adoptedStyleSheets.filter((s) => s !== sheet && s !== varSheet);
-    for (const n of root?.querySelectorAll("[data-gfx-set], [data-gfx-plate], [data-gfx-ui], img.gfx-sd, .gfx-forge-mascot, .gfx-foe, .gfx-team, .gfx-lobby, .gfx-ev-mascot, .gfx-tiles") || []) n.remove();
+    for (const n of root?.querySelectorAll("[data-gfx-set], [data-gfx-plate], [data-gfx-ui], img.gfx-sd, .gfx-forge-mascot, .gfx-foe, .gfx-team, .gfx-lobby, .gfx-ev-mascot, .gfx-tiles, .gfx-vn-cast") || []) n.remove();
     for (const n of root?.querySelectorAll("[data-gfx-sd], [data-gfx-foe]") || []) { n.removeAttribute("data-gfx-sd"); n.removeAttribute("data-gfx-foe"); }
     if (window[KEY]) delete window[KEY];
   };
