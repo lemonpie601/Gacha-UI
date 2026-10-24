@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.34 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.35 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -775,7 +775,7 @@ ${TM} .slot[data-gfx-sd] { overflow: visible !important; }
 ${TM} .slot[data-gfx-sd] .slot-art { background: radial-gradient(70% 40% at 50% 92%, color-mix(in srgb, var(--gfx-line) 30%, transparent), transparent 70%),
   linear-gradient(170deg, var(--gfx-sky1), var(--gfx-sky2)) !important; }
 ${TM} .slot[data-gfx-sd] .slot-art img { opacity: 0 !important; }
-${TM} .slot[data-gfx-sd] > img.gfx-sd { position: absolute; left: 0; width: 100%; bottom: 14%; height: calc(82% * var(--hf, 1)); object-fit: contain; object-position: 50% 100%;
+${TM} .slot[data-gfx-sd] > img.gfx-sd { position: absolute; left: 0; width: 100%; bottom: 14%; height: min(calc(72% * var(--hf, 1)), 76%); object-fit: contain; object-position: 50% 100%;
   max-width: none !important; max-height: none !important; filter: ${STICKER}; pointer-events: none; z-index: 2; animation: gfx-float 2.6s ease-in-out infinite; }
 ${TM} .slot.filled:nth-child(2) > img.gfx-sd { animation-delay: -0.9s; } ${TM} .slot.filled:nth-child(3) > img.gfx-sd { animation-delay: -1.7s; }
 @keyframes gfx-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6%); } }
@@ -796,7 +796,7 @@ ${TM} .briefing .gfx-team img.portrait { width: 100% !important; max-width: 100%
 ${TM} .briefing .gfx-team img:not(.portrait) { position: absolute; bottom: 0; left: 50%; translate: -50% 0; width: auto !important; height: 100% !important; scale: var(--hf, 1); }
 ${TM} .briefing .gfx-team > span::after { bottom: 0; animation: none; }
 ${TM} .briefing { gap: calc(var(--f, 10px) * .7); overflow: hidden; }
-${TM} .slot[data-gfx-sd] > img.gfx-sd { left: 5%; width: 90%; bottom: 18%; height: 78%; }
+${TM} .slot[data-gfx-sd] > img.gfx-sd { left: 5%; width: 90%; bottom: 18%; height: 70%; }
 
 /* ── Home lobby ─────────────────────────────────────────────────────────────────────────────────── */
 ${HP} .hm-plate { display: none !important; }
