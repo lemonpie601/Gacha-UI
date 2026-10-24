@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.17 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.18 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -936,6 +936,20 @@ img.baked { filter: none !important; }
   border: 2px solid var(--steel-dark); border-radius: 10px; padding: 0.45em 0.6em; }
 .gfx-field input { font: inherit; font-size: var(--t-xs, 12px); color: var(--text); background: var(--surface, #fff);
   border: 2px solid var(--steel-dark); border-radius: 10px; padding: 0.4em 0.6em; }
+/* Roster cards: the picture gives way so the name and role below always fit (the rounder font is taller
+ * and the bottom line was cut off). */
+${T} button.u { overflow: hidden; }
+${T} button.u > .u-art { aspect-ratio: auto !important; flex: 1 1 0 !important; min-height: 0 !important; }
+${T} button.u > .u-meta { flex: none !important; padding-bottom: .35em !important; line-height: 1.3; }
+/* Formation slots: the name strip was dim text on a near-black fade; a cream plate instead. */
+${T} .slot .slot-meta { background: linear-gradient(0deg, color-mix(in srgb, var(--gfx-card) 96%, transparent) 60%, color-mix(in srgb, var(--gfx-card) 0%, transparent)) !important; padding-bottom: .3em !important; }
+${T} .slot .slot-name { color: var(--gfx-text) !important; text-shadow: 0 0 3px var(--gfx-card) !important; }
+${T} .slot .slot-role { color: var(--steel) !important; text-shadow: none !important; }
+/* Chapter map "Start / auto-battle": its big label was white on a light pill and only the small line showed. */
+${T} button.act.start { display: inline-flex !important; flex-direction: column; align-items: center; justify-content: center; gap: .05em; line-height: 1.15 !important;
+  background: linear-gradient(180deg, var(--gfx-pick), color-mix(in srgb, var(--gfx-pick) 65%, var(--gfx-accent))) !important; color: var(--gfx-line) !important; padding: .35em 1.1em !important; }
+${T} button.act.start > span { color: var(--gfx-line) !important; font-size: 1em; }
+${T} button.act.start > small { color: color-mix(in srgb, var(--gfx-line) 72%, transparent) !important; font-size: .72em; }
 /* No scrollbars anywhere under 말랑: lists still scroll with the wheel, a finger or a drag. */
 ${T} .gf-arena, ${T} .gf-arena * { scrollbar-width: none; }
 ${T} .gf-arena::-webkit-scrollbar, ${T} .gf-arena *::-webkit-scrollbar { display: none; }
@@ -984,7 +998,14 @@ ${T} :is(.vn-dock, .vn-bar) { overflow-x: clip !important; }
 ${T} [data-screen="banner"] .bcard { border: 3px solid var(--gfx-line) !important; border-radius: 20px !important; box-shadow: 0 .28em 0 var(--gfx-line) !important; overflow: hidden; }
 ${T} [data-screen="banner"] .bcard[aria-pressed="true"] { outline: .35em solid color-mix(in srgb, var(--gfx-pick) 75%, transparent); translate: 0 -.15em; }
 ${T} [data-screen="banner"] .show { border: 3px solid var(--gfx-line); border-radius: 26px; overflow: hidden; box-shadow: 0 .42em 0 var(--gfx-line); }
-${T} [data-screen="banner"] .chip, ${T} [data-screen="banner"] .pity, ${T} [data-screen="banner"] .float { border-radius: 999px !important; background: color-mix(in srgb, var(--gfx-card) 92%, transparent) !important; border: 2px solid var(--gfx-line) !important; }
+${T} [data-screen="banner"] .chip { border-radius: 999px !important; background: color-mix(in srgb, var(--gfx-card) 92%, transparent) !important; border: 2px solid var(--gfx-line) !important; }
+/* The banner's info block and its pity box are tall: rounded cards, not pills (a pill cut their text). */
+${T} [data-screen="banner"] .float { border-radius: 20px !important; background: color-mix(in srgb, var(--gfx-card) 92%, transparent) !important;
+  border: 2.5px solid var(--gfx-line) !important; box-shadow: 0 .25em 0 var(--gfx-line) !important; padding: .6em .9em !important; box-sizing: border-box; }
+${T} [data-screen="banner"] .float .pity { border-radius: 12px !important; border: 0 !important; background: color-mix(in srgb, var(--gfx-pick) 30%, transparent) !important;
+  padding: .45em .7em !important; margin: .35em 0 !important; box-sizing: border-box; }
+${T} [data-screen="banner"] .float .pity .track { border-radius: 999px; overflow: hidden; }
+${T} [data-screen="banner"] .float .pity .note { white-space: normal !important; line-height: 1.35; }
 ${T} [data-screen="banner"] .pull { border: 3px solid var(--gfx-line) !important; border-radius: 999px !important; background: linear-gradient(180deg, var(--gfx-pick), var(--gfx-accent)) !important; box-shadow: 0 .28em 0 var(--gfx-line) !important; }
 /* Re-entering a screen must not replay entrance animations on every game redraw. */
 ${T} [data-in] { animation: none !important; opacity: 1 !important; }
