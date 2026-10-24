@@ -28,7 +28,7 @@ has(/function storySnapshot\(/, "스토리 표시는 현재 화면 상태에서 
 has(/const mode = choiceActive\s*\?\s*"choice"\s*:\s*cgActive\s*\?\s*"cg"/, "선택지와 CG 모드를 구분해야 합니다.");
 has(/\.vn:has\(\.vn-choices:not\(\[hidden\]\)/, "선택지가 실제로 있을 때만 말랑 선택지 UI를 적용해야 합니다.");
 has(/\.vn-choices[^}]*\.vn-choice[^}]*border-radius:\s*999px/s, "스토리 선택지는 말랑한 캡슐 카드여야 합니다.");
-has(/\.gfx-vn-cast \.who \{[^}]*bottom:\s*0[^}]*height:\s*86%/s, "짧은 SD도 대화창 위 무대 바닥에 서야 합니다.");
+has(/\.gfx-vn-cast \.who \{[^}]*bottom:\s*9%[^}]*height:\s*84%/s, "스토리 SD는 크게, 다리 일부가 대화창 뒤로 가게 서야 합니다.");
 has(/vn\.hasAttribute\("data-cg"\)/, "가챠 포지의 실제 CG 상태에서는 SD를 치워야 합니다.");
 has(/\.gfx-vn-cast \.who \.body \{[^}]*scale:\s*var\(--hf, 1\)/s, "키 배율은 발 기준 내부 스케일로 적용해야 합니다.");
 

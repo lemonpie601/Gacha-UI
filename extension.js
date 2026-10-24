@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.0 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.1 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -381,7 +381,9 @@ ${T} .vn-plate[data-gfx-sd] > img.gfx-sd {
 /* The cast line-up: large SDs standing behind the dialogue box (the box is the game's, untouched). */
 ${T} .vn-plate[data-gfx-sd] { opacity: 0 !important; }
 .gfx-vn-cast { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
-.gfx-vn-cast .who { position: absolute; bottom: 0; height: 86%; aspect-ratio: 0.68; translate: -50% 0; z-index: 1;
+/* Feet a little above the bottom edge, so roughly the lower legs pass behind the box; a shorter character
+   (키 below 보통) keeps the same feet line and simply stands lower-headed. */
+.gfx-vn-cast .who { position: absolute; bottom: 9%; height: 84%; aspect-ratio: 0.68; translate: -50% 0; z-index: 1;
   filter: brightness(0.6) saturate(0.85); scale: 0.94; transform-origin: 50% 100%;
   transition: left 420ms cubic-bezier(.3,1.3,.5,1), filter 250ms ease, scale 250ms ease; animation: gfx-cast-in 380ms ease both; }
 .gfx-vn-cast .who[data-speaking] { filter: none; scale: 1; z-index: 2; }
@@ -689,10 +691,10 @@ ${LB} .hm-tile.gfx-battle-tile > svg { width: 3.6em !important; height: 3.6em !i
 /* Events and achievements: a column of round icons down the right edge. */
 ${LB} .hm-rail { position: absolute !important; right: 1.2% !important; top: 3% !important; left: auto !important; bottom: auto !important;
   width: auto !important; height: auto !important; display: flex !important; flex-direction: column !important; align-items: center; gap: 0.6em !important; z-index: 5; }
-${LB} .hm-side { position: relative; flex-direction: column !important; width: auto !important; height: auto !important; min-height: 0 !important; padding: 0 !important;
+${LB} .hm-side { position: relative; flex-direction: column !important; width: auto !important; height: auto !important; min-height: 0 !important; padding: 0 !important; font-size: calc(var(--f) * 1.55) !important;
   font-size: calc(var(--f) * 1.35) !important; }
 ${LB} .hm-side .lbl { flex-direction: column !important; gap: 0.1em !important; }
-${LB} .hm-side .lbl > svg { width: 3em !important; height: 3em !important; padding: 0.55em !important; }
+${LB} .hm-side .lbl > svg { width: 3.2em !important; height: 3.2em !important; padding: 0.6em !important; }
 ${LB} .hm-side[data-go="events"] .lbl > svg { background: #FF8FB1 !important; }
 ${LB} .hm-side[data-go="missions"] .lbl > svg { background: #6FB2F2 !important; }
 ${LB} .hm-side .hm-dot { position: absolute; top: 0.1em; right: 0.2em; width: 0.7em; height: 0.7em; border: 2px solid #fff; background: #F25F5C !important; }
@@ -867,6 +869,8 @@ ${T} [data-screen="events"] .pv-rail { grid-auto-columns: min(16cqh, calc(var(--
 ${T} [data-screen="events"] .pv-track { overflow-x: auto; overflow-y: hidden; min-height: 0; padding: .3em .3em .65em; }
 ${T} [data-screen="events"] .pv-missions { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .15em .3em .45em; }
 ${T} [data-screen="events"] .ev-foot { min-height: 0; padding-top: .3em; }
+${T} [data-screen="events"] :is(.ev-claim, .sv-draw, .sv-fight) { font-size: calc(var(--f, 10px) * 1.15) !important; min-height: 2.4em; padding: .35em 1.4em !important; }
+${T} [data-screen="events"] :is(.pv-reroll, .sv-ms-btn) { font-size: calc(var(--f, 10px) * .85) !important; padding: .25em .8em !important; }
 @media (prefers-reduced-motion: reduce) {
   .gfx-vn-cast .who, .gfx-vn-cast .body, .gfx-lobby .body, .gfx-team > span { animation: none !important; transition: none !important; }
 }
@@ -1372,7 +1376,12 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
    * is treated as CG, and characters without an SD use a contained portrait card in the same stage. */
   const MAX_STORY_CAST = 3;
   const vnCast = { renderedKey: "" };
-  const CAST_X = { 1: [50], 2: [31, 69], 3: [18, 50, 82] };
+  const CAST_X = { 1: [50], 2: [30, 70], 3: [19, 50, 81] };
+  // The protagonist always takes the left-most place, as the player's side of the stage.
+  function protagonistName() {
+    const w = world(), h = host();
+    return (h?._run?.protagonist?.name || w?.cards.find((c) => c.isProtagonist)?.name || "").trim();
+  }
   function activePlateImage(plate) {
     const front = plate.getAttribute("data-front") || "a";
     return plate.querySelector('.vn-art[data-art="' + front + '"] > img') || plate.querySelector(".vn-art img, img");
@@ -1470,7 +1479,9 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
   }
   function paintVnCast(root, enabled, speaker, snapshot = storySnapshot(root, speaker)) {
     const vn = root.querySelector(".vn");
-    const stage = vn?.querySelector(":scope > .vn-stage") || vn;
+    // The whole scene, not the strip above the box: the cast stands behind the dialogue box (the dock is above
+    // it in the stacking order), so their legs pass behind it the way Trickcal stages its characters.
+    const stage = vn;
     let layer = stage && stage.querySelector(":scope > .gfx-vn-cast");
     if (!vn || !enabled || snapshot.mode !== "dialogue" || !snapshot.slots.length) {
       layer?.remove();
@@ -1481,7 +1492,8 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       layer = el("div", "gfx-vn-cast");
       stage.prepend(layer);
     }
-    const slots = snapshot.slots;
+    const prota = protagonistName();
+    const slots = snapshot.slots.slice().sort((a, b) => (b.name === prota) - (a.name === prota));
     if (layer.getAttribute("data-scene") !== snapshot.sceneKey) {
       // A new place (or scene): the cast that was there steps out under a soft wipe naming where we are now,
       // instead of vanishing in one frame.
