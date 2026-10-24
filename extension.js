@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.3.0 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.4.0 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -319,7 +319,6 @@ ${T} .vn-plate[data-gfx-sd] > img.gfx-sd {
   translate: -50% 0; object-fit: contain; object-position: 50% 100%;
   filter: ${STICKER}; transform-origin: 50% 100%; pointer-events: none;
 }
-${T} .vn-plate[data-gfx-sd][data-side="left"] > img.gfx-sd { scale: -1 1; }
 
 /* The cast line-up: large SDs standing behind the dialogue box (the box is the game's, untouched). */
 ${T} .vn-plate[data-gfx-sd] { opacity: 0 !important; }
@@ -347,7 +346,6 @@ ${T} .cbt[data-gfx-sd] > img.gfx-sd {
   position: absolute; left: -6%; right: -6%; bottom: 16%; height: 96%; width: 112%; z-index: 2;
   object-fit: contain; object-position: 50% 100%; filter: ${STICKER}; transform-origin: 50% 100%; pointer-events: none;
 }
-${T} .cbt.enemy[data-gfx-sd] > img.gfx-sd { scale: -1 1; }
 
 /* ── Motion ────────────────────────────────────────────────────────────────────────────────────── */
 @keyframes gfx-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.015, 0.985); } }
@@ -499,6 +497,11 @@ ${F} .gfx-tiles i { border: 2px dashed color-mix(in srgb, #fff 75%, transparent)
 ${F} .gfx-tiles i:nth-child(8n+5), ${F} .gfx-tiles i:nth-child(8n+6), ${F} .gfx-tiles i:nth-child(8n+7), ${F} .gfx-tiles i:nth-child(8n+8) {
   background: color-mix(in srgb, #F2884B 16%, transparent); border-color: color-mix(in srgb, #FFE1C9 80%, transparent); }
 ${H('[data-gfx-field][data-gfx-phase="prebattle"]')} .gfx-tiles { opacity: 1; }
+/* Before the fight the briefing is in front: the field units (which sit above its blur) and the empty turn
+   bar wait out of sight, and the floating team over the start button stands in for them. */
+${H('[data-gfx-field][data-gfx-phase="prebattle"]')} .arena .cbt,
+${H('[data-gfx-field][data-gfx-phase="prebattle"]')} .cbt-turn-slot { visibility: hidden !important; }
+${H('[data-gfx-field][data-gfx-phase="loading"]')} .cbt-turn-slot { visibility: hidden !important; }
 ${F} .arena .cbt .hp > i { background: linear-gradient(180deg, #FF8A8A, #E0484E) !important; }
 ${F} .side.allies .cbt .hp > i { background: linear-gradient(180deg, #8EE6A0, #3DA95A) !important; }
 ${F} .arena .cbt .hp { background: #3B2A22 !important; height: calc(var(--f) * 0.55) !important; }
@@ -558,7 +561,20 @@ ${LB} .hm-tile .nm, ${LB} .hm-side .lbl > span { font-family: var(--display) !im
 ${LB} .hm-side { background: none !important; border: 0 !important; box-shadow: none !important; }
 ${LB} .hm-side .lbl { display: inline-flex; align-items: center; gap: 0.35em; }
 ${LB} .hm-side .lbl > svg { width: 2em; height: 2em; padding: 0.35em; border-radius: 50%; color: #fff; background: #B48CF0; border: 2.5px solid var(--gfx-line); box-shadow: 0 0.16em 0 var(--gfx-line); }
-${LB} .hm-cta { background: linear-gradient(180deg, #FFDC5E, #FFB81C) !important; color: #3B2610 !important; border: 3px solid #3B2610 !important;
+${LB} .hm-cta { display: none !important; }
+${LB} .hm-tile.gfx-battle-tile { --gfx-tile: #F25F5C; }
+${LB} .hm-tile.gfx-battle-tile > svg { width: 3.6em !important; height: 3.6em !important; }
+/* Events and achievements: a column of round icons down the right edge. */
+${LB} .hm-rail { position: absolute !important; right: 1.2% !important; top: 3% !important; left: auto !important; bottom: auto !important;
+  width: auto !important; height: auto !important; display: flex !important; flex-direction: column !important; align-items: center; gap: 0.6em !important; z-index: 5; }
+${LB} .hm-side { position: relative; flex-direction: column !important; width: auto !important; height: auto !important; min-height: 0 !important; padding: 0 !important;
+  font-size: calc(var(--f) * 1.35) !important; }
+${LB} .hm-side .lbl { flex-direction: column !important; gap: 0.1em !important; }
+${LB} .hm-side .lbl > svg { width: 3em !important; height: 3em !important; padding: 0.55em !important; }
+${LB} .hm-side[data-go="events"] .lbl > svg { background: #FF8FB1 !important; }
+${LB} .hm-side[data-go="missions"] .lbl > svg { background: #6FB2F2 !important; }
+${LB} .hm-side .hm-dot { position: absolute; top: 0.1em; right: 0.2em; width: 0.7em; height: 0.7em; border: 2px solid #fff; background: #F25F5C !important; }
+${LB} .hm-cta-unused { background: linear-gradient(180deg, #FFDC5E, #FFB81C) !important; color: #3B2610 !important; border: 3px solid #3B2610 !important;
   box-shadow: 0 0.3em 0 #8A5A00, inset 0 0.2em 0 rgba(255,255,255,0.55) !important; }
 ${LB} .hm-cta * { color: #3B2610 !important; }
 ${LB} .hm-cta { width: auto !important; height: auto !important; min-height: 0 !important; padding: 0.35em 1.4em 0.45em !important; border-radius: 999px !important; align-self: flex-end; }
@@ -567,7 +583,7 @@ ${LB} .hm-cta .big { font-size: calc(var(--f) * 2.2) !important; line-height: 1 
 ${LB} .hm-slot-bg { opacity: 0.85; }
 .gfx-lobby .who { position: absolute; translate: -50% -100%; height: calc(54% * var(--s, 1)); aspect-ratio: 2 / 3; pointer-events: auto; cursor: pointer;
   animation: gfx-wander var(--d, 11s) ease-in-out infinite; animation-delay: var(--dl, 0s); }
-.gfx-lobby .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-bob 1.9s ease-in-out infinite; }
+.gfx-lobby .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-bob 1.9s ease-in-out infinite; animation-delay: var(--bdl, 0s); }
 .gfx-lobby .who img { max-width: 150%; max-height: 100%; object-fit: contain; filter: ${STICKER}; -webkit-user-drag: none; user-select: none; }
 .gfx-lobby .who::after { content: ""; position: absolute; bottom: -3%; left: 20%; right: 20%; height: 7%; border-radius: 50%; z-index: -1;
   background: color-mix(in srgb, var(--gfx-line) 32%, transparent); }
@@ -580,6 +596,9 @@ ${LB} .hm-slot-bg { opacity: 0.85; }
 .gfx-lobby .who .flip { position: absolute; inset: 0; animation: gfx-flip var(--d, 11s) linear infinite; animation-delay: var(--dl, 0s); }
 @keyframes gfx-wander { 0%, 100% { transform: translateX(0); } 40%, 48% { transform: translateX(70%); } 88%, 96% { transform: translateX(0); } }
 @keyframes gfx-flip { 0%, 44% { transform: scaleX(1); } 44.01%, 92% { transform: scaleX(-1); } 92.01%, 100% { transform: scaleX(1); } }
+@keyframes gfx-flip-l { 0%, 44% { transform: scaleX(-1); } 44.01%, 92% { transform: scaleX(1); } 92.01%, 100% { transform: scaleX(-1); } }
+.gfx-lobby .who[data-face="left"] .flip { animation-name: gfx-flip-l; }
+.gfx-lobby .who[data-face="front"] .flip { animation: none; }
 .gfx-lobby .who[data-talk], .gfx-lobby .who[data-talk] .flip { animation-play-state: paused; }
 .gfx-lobby .who { touch-action: none; }
 .gfx-lobby .who[data-pinch], .gfx-lobby .who[data-pinch] .flip, .gfx-lobby .who[data-pinch] .body { animation-play-state: paused !important; cursor: grabbing; }
@@ -605,7 +624,7 @@ ${AT} .ev-day .item-art { filter: drop-shadow(0 0.1em 0 color-mix(in srgb, var(-
 ${AT} .ev-day .tick { display: none !important; }
 ${AT} .ev-day.done { background: color-mix(in srgb, var(--gfx-ink) 80%, #ddd) !important; }
 ${AT} .ev-day.done > *:not(.tick) { opacity: 0.55; }
-${AT} .ev-day.done::after { content: "출석"; position: absolute; left: 50%; top: 42%; width: 62%; aspect-ratio: 1; translate: -50% -50%; rotate: -14deg;
+${AT} .ev-day.done::after, ${AT} .ev-day.gfx-stamped::after { content: "출석"; position: absolute; left: 50%; top: 42%; width: 62%; aspect-ratio: 1; translate: -50% -50%; rotate: -14deg;
   display: grid; place-items: center; font-family: "Jua", "Malgun Gothic", sans-serif; font-size: 1.15em; color: #E0484E;
   border: 3px solid #E0484E; border-radius: 50%; background: color-mix(in srgb, #fff 55%, transparent); box-shadow: inset 0 0 0 2px color-mix(in srgb, #E0484E 35%, transparent);
   animation: gfx-stamp 420ms cubic-bezier(.3,1.6,.5,1) both; }
@@ -622,6 +641,8 @@ ${AT} .ev-claim { font-family: "Jua", "Malgun Gothic", sans-serif !important; fo
 ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px !important; background: var(--gfx-card) !important; box-shadow: 0 0.15em 0 var(--gfx-line) !important; }
 .gfx-ev-mascot { position: absolute; right: -3%; bottom: 0; width: 19%; height: 104%; display: grid; place-items: end center; pointer-events: none; z-index: 3; }
 .gfx-ev-mascot .body { width: 100%; height: 100%; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-bob 2s ease-in-out infinite; }
+/* Baked sprites carry their outline already. */
+img.baked { filter: none !important; }
 .gfx-ev-mascot img, .gfx-ev-mascot svg { max-width: 150%; max-height: 100%; object-fit: contain; filter: ${STICKER}; }
 .gfx-ev-mascot .say { position: absolute; top: 2%; right: 70%; white-space: nowrap; padding: 0.3em 0.8em; font-family: "Jua", "Malgun Gothic", sans-serif;
   color: var(--gfx-text); background: #fff; border: 2.5px solid var(--gfx-line); border-radius: 14px; box-shadow: 0 0.15em 0 var(--gfx-line); }
@@ -811,20 +832,82 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     + '<ellipse class="blush" cx="32" cy="84" rx="8" ry="5"/><ellipse class="blush" cx="88" cy="84" rx="8" ry="5"/>'
     + '<path class="mouth" d="M53 82 Q60 89 67 82"/></svg>';
   function heroNode(url) {
-    if (url) { const i = el("img"); i.src = url; i.alt = ""; i.draggable = false; return i; }
+    if (url) { const i = el("img"); i.alt = ""; i.draggable = false; setSprite(i, url, false); return i; }
     const s = el("span"); s.innerHTML = MOCHI; return s.firstChild;
   }
+
+  /* ── Baked sprites ──
+   * The white sticker outline used to be five stacked drop-shadow filters on every sprite, redrawn each frame
+   * while the sprite moves — the cost behind a choppy lobby. Instead each SD is drawn once into a canvas with
+   * the outline and a soft under-shadow, scaled down to what the screens need, and kept as a blob: URL. */
+  const bakedMap = new Map(); // raw url -> { url, px, py } | "pending" | "failed"
+  const BAKE_H = 760;
+  function bakeInfo(url) {
+    const b = bakedMap.get(url);
+    if (b === undefined) bake(url);
+    return b && typeof b === "object" ? b : null;
+  }
+  async function bake(url) {
+    bakedMap.set(url, "pending");
+    try {
+      const im = new Image();
+      im.src = url;
+      await im.decode();
+      const sc = Math.min(1, BAKE_H / im.naturalHeight), W = Math.round(im.naturalWidth * sc), Hh = Math.round(im.naturalHeight * sc);
+      const r = Math.max(2, Math.round(Hh * 0.004)), pad = r * 3;
+      const cw = W + pad * 2, ch = Hh + pad * 2;
+      const sil = document.createElement("canvas");
+      sil.width = cw; sil.height = ch;
+      const sx = sil.getContext("2d");
+      sx.drawImage(im, pad, pad, W, Hh);
+      sx.globalCompositeOperation = "source-in";
+      sx.fillStyle = "#fff";
+      sx.fillRect(0, 0, cw, ch);
+      const out = document.createElement("canvas");
+      out.width = cw; out.height = ch;
+      const ox = out.getContext("2d");
+      // The under-shadow: the silhouette, tinted, a little lower.
+      ox.save();
+      ox.globalAlpha = 0.4;
+      ox.filter = "brightness(0.35) sepia(1) saturate(2.2) hue-rotate(-20deg)";
+      ox.drawImage(sil, 0, r * 2.2);
+      ox.restore();
+      for (let a = 0; a < 16; a++) ox.drawImage(sil, Math.cos((a / 16) * Math.PI * 2) * r, Math.sin((a / 16) * Math.PI * 2) * r);
+      ox.drawImage(im, pad, pad, W, Hh);
+      const blob = await new Promise((res) => out.toBlob(res, "image/png"));
+      if (!blob) throw Error("no blob");
+      const info = { url: URL.createObjectURL(blob), px: pad / cw, py: pad / ch };
+      bakedMap.set(url, info);
+      // Every sprite already on screen with the raw art swaps to the baked one in place: no rebuild, no restart.
+      for (const img of gameRoot()?.querySelectorAll("img[data-raw]") || []) if (img.dataset.raw === url) setSprite(img, url, img.style.scale === "-1 1");
+    } catch {
+      bakedMap.set(url, "failed");
+    }
+  }
+  function setSprite(img, url, flip) {
+    const b = url ? bakeInfo(url) : null;
+    const src = b ? b.url : url;
+    if (img.getAttribute("src") !== src) img.setAttribute("src", src);
+    img.classList.toggle("baked", !!b);
+    if (b) { img.dataset.padx = String(b.px); img.dataset.pady = String(b.py); } else { delete img.dataset.padx; delete img.dataset.pady; }
+    if (img.dataset.raw !== url) img.dataset.raw = url;
+    const scale = flip ? "-1 1" : "";
+    if (img.style.scale !== scale) img.style.scale = scale;
+  }
+  // Which way the art faces (set per SD in its editor); a sprite is mirrored when it should face the other way.
+  const faceOf = (name) => { const f = sdEntry(name).face; return f === "left" || f === "front" ? f : "right"; };
+  const needFlip = (name, want) => { const f = faceOf(name); return f !== "front" && !!want && f !== want; };
 
   /* ── Story and battle sprites ── */
   function nameFromImg(img) {
     const w = world();
     return w && img && img.getAttribute("src") ? w.byPortrait.get(pathOf(img.getAttribute("src"))) || "" : "";
   }
-  function placeSd(container, url) {
+  function placeSd(container, url, flip = false) {
     let img = container.querySelector(":scope > img.gfx-sd");
     if (!url) { if (img) img.remove(); if (container.hasAttribute("data-gfx-sd")) container.removeAttribute("data-gfx-sd"); return; }
     if (!img) { img = el("img", "gfx-sd"); img.alt = ""; img.draggable = false; container.append(img); }
-    if (img.getAttribute("src") !== url) img.setAttribute("src", url);
+    setSprite(img, url, flip);
     if (!container.hasAttribute("data-gfx-sd")) container.setAttribute("data-gfx-sd", "");
   }
   function paintSprites(root) {
@@ -849,12 +932,13 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     paintVnCast(root, on && prefs.opts.storySd, whoEl && whoEl.hasAttribute("data-narration") ? "" : who);
     const field = on && prefs.opts.field;
     for (const card of root.querySelectorAll(".cbt")) {
-      let url = "";
+      let url = "", name = "";
       if (on && (prefs.opts.battleSd || field)) {
-        const name = nameFromImg(card.querySelector(".ava-photo")) || (card.querySelector(".nm")?.textContent || "").trim();
+        name = nameFromImg(card.querySelector(".ava-photo")) || (card.querySelector(".nm")?.textContent || "").trim();
         url = sdUrl(name);
       }
-      if (url || card.hasAttribute("data-gfx-sd")) placeSd(card, url);
+      // Allies look toward the foes on the right, foes toward the left.
+      if (url || card.hasAttribute("data-gfx-sd")) placeSd(card, url, url && needFlip(name, card.classList.contains("enemy") ? "left" : "right"));
       // On the field, a foe with no art of its own is a mochi monster in its element's colour.
       const foe = field && !url && card.classList.contains("enemy") && !card.querySelector(".ava-photo");
       placeFoe(card, foe ? card.getAttribute("data-aff") || "" : null);
@@ -908,14 +992,15 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
         n = el("div", "who");
         n.setAttribute("data-name", name);
         const body = el("div", "body"), img = el("img");
-        img.src = sdUrl(name);
         img.alt = name;
         img.draggable = false;
+        body.style.animationDelay = (-(performance.now() / 1000) % 3.4).toFixed(2) + "s";
         body.append(img);
         n.append(body);
         layer.append(n);
       }
       n.style.left = xs[i] + "%";
+      setSprite(n.querySelector("img"), sdUrl(name), needFlip(name, xs[i] < 50 ? "right" : xs[i] > 50 ? "left" : ""));
       const speaking = name === speaker;
       if (speaking !== n.hasAttribute("data-speaking")) {
         if (speaking) { n.setAttribute("data-speaking", ""); n.removeAttribute("data-hop"); void n.offsetWidth; n.setAttribute("data-hop", ""); }
@@ -970,7 +1055,7 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
       if (!urls.length) continue;
       row = el("div", "gfx-team win");
       row.setAttribute("data-key", key);
-      urls.forEach((u, i) => { const sp = el("span"), im = el("img"); im.src = u; im.alt = ""; sp.style.animationDelay = (-i * 0.18).toFixed(2) + "s"; sp.append(im); row.append(sp); });
+      urls.forEach((u, i) => { const sp = el("span"), im = el("img"); setSprite(im, u, false); im.alt = ""; sp.style.animationDelay = (-i * 0.18).toFixed(2) + "s"; sp.append(im); row.append(sp); });
       verdict.after(row);
     }
     for (const brief of root.querySelectorAll(".briefing")) {
@@ -989,7 +1074,7 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
       row.setAttribute("data-key", key);
       for (const t of team) {
         const s = el("span"), i = el("img", t.url ? "" : "portrait");
-        i.src = t.url || t.portrait;
+        if (t.url) setSprite(i, t.url, false); else i.src = t.portrait;
         i.alt = "";
         s.append(i);
         row.append(s);
@@ -1032,6 +1117,8 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
   }
   function startPinch(img, e, cheeks, rFrac, stop, done) {
     if (!img || !img.complete || !img.naturalWidth || !cheeks || !cheeks.length) return false;
+    const px = Number(img.dataset.padx) || 0, py = Number(img.dataset.pady) || 0;
+    if (px || py) { cheeks = cheeks.map((c) => ({ x: px + c.x * (1 - 2 * px), y: py + c.y * (1 - 2 * py) })); rFrac *= 1 - 2 * px; }
     const box = img.getBoundingClientRect();
     if (!box.width || !box.height) return false;
     const mirrored = mirroredIn(img, stop);
@@ -1178,12 +1265,25 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     const cast = (prefs.home[w.id] = prefs.home[w.id] || {});
     cast[name] = { on: true, x: NaN, y: NaN, s: 1, ...cast[name], ...patch };
   }
+  const SWORDS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6M16 16l4 4M19 21l2-2"/><path d="M9.5 17.5 21 6V3h-3L6.5 14.5"/><path d="m11 19-6-6M8 16l-4 4M5 21l-2-2"/></svg>';
   function paintLobby(root, enabled) {
+    // The big story card leaves the lobby; its button lives in the menu row instead, like Trickcal's 전투.
+    for (const dock of root.querySelectorAll(".hm-dock")) {
+      let tile = dock.querySelector(":scope > .gfx-battle-tile");
+      if (!enabled) { tile?.remove(); continue; }
+      if (tile) continue;
+      tile = el("button", "hm-tile gfx-battle-tile");
+      tile.type = "button";
+      tile.innerHTML = SWORDS;
+      tile.append(el("span", "nm", "전투"));
+      on(tile, "click", (e) => { e.stopPropagation(); root.querySelector(".hm-cta")?.click(); });
+      dock.append(tile);
+    }
     for (const screen of root.querySelectorAll(".hm-screen")) {
       let lobby = screen.querySelector(":scope > .gfx-lobby");
       if (!enabled) { lobby?.remove(); continue; }
       const cast = homeCast();
-      const key = (lobbyEdit ? "E:" + lobbyPicked + ":" : "") + cast.map((c) => [c.name, c.url, c.x.toFixed(1), c.y.toFixed(1), c.s].join(",")).join("|");
+      const key = (lobbyEdit ? "E:" + lobbyPicked + ":" : "") + cast.map((c) => [c.name, c.url, c.x.toFixed(1), c.y.toFixed(1), c.s, faceOf(c.name)].join(",")).join("|");
       if (lobby && lobby.getAttribute("data-key") === key) continue;
       lobby?.remove();
       lobby = el("div", "gfx-lobby");
@@ -1198,10 +1298,13 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
   function makeWho(c, i) {
     const who = el("div", "who");
     who.setAttribute("data-name", c.name);
-    who.style.cssText = "left:" + c.x + "%;top:" + c.y + "%;--s:" + c.s + ";--d:" + (9 + ((i * 3.7) % 6)).toFixed(1) + "s;--dl:" + (-i * 2.3).toFixed(1) + "s";
+    // Delays come from the clock, so a lobby the game redraws carries on mid-step instead of starting over.
+    const d = 9 + ((i * 3.7) % 6), now = performance.now() / 1000;
+    who.style.cssText = "left:" + c.x + "%;top:" + c.y + "%;--s:" + c.s + ";--d:" + d.toFixed(1) + "s;--dl:" + (-((now + i * 2.3) % d)).toFixed(2) + "s;--bdl:" + (-((now + i * 0.7) % 1.9)).toFixed(2) + "s";
+    who.setAttribute("data-face", faceOf(c.name));
     if (lobbyEdit && c.name === lobbyPicked) who.style.outlineStyle = "solid";
     const flip = el("div", "flip"), body = el("div", "body"), img = el("img");
-    img.src = c.url;
+    setSprite(img, c.url, false);
     img.alt = c.name;
     img.draggable = false;
     body.append(img);
@@ -1294,10 +1397,31 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
   }, 7000);
 
   /* ── Attendance ── */
+  // One listener on the game's root: the game redraws the board often, so a listener on the button goes stale.
+  const boundRoots = new WeakSet();
+  function bindAttend(root) {
+    if (boundRoots.has(root)) return;
+    boundRoots.add(root);
+    on(root, "click", (e) => {
+      if (!current || !prefs.opts.attend || !e.target.closest?.("[data-events-claim]")) return;
+      // The stamp lands at once; when the game has taken the claim, the board closes by itself.
+      root.querySelector(".ev-panel .ev-day.next")?.classList.add("gfx-stamped");
+      const t0 = performance.now();
+      const wait = setInterval(() => {
+        const live = root.querySelector(".ev-panel");
+        const done = !live || !live.querySelector("[data-events-claim]:not(:disabled)") || !live.querySelector(".ev-day.next");
+        if (!done && performance.now() - t0 < 6000) return;
+        clearInterval(wait);
+        setTimeout(() => root.querySelector("[data-events-close]")?.click(), 550);
+      }, 120);
+    }, { capture: true });
+  }
   function paintAttend(root, enabled) {
+    bindAttend(root);
     for (const panel of root.querySelectorAll(".ev-panel")) {
       let m = panel.querySelector(":scope > .gfx-ev-mascot");
       if (!enabled) { m?.remove(); continue; }
+
       if (m) continue;
       m = el("div", "gfx-ev-mascot");
       const body = el("div", "body");
@@ -1386,7 +1510,7 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     if (want) {
       if (!loadingSince) loadingSince = now;
       // Short waits stay quiet: only a load still running after 160ms gets the screen (and a stuck one only once).
-      if (!load && now - loadingSince > 160 && now - loadingSince < 25000) {
+      if (!load && now - loadingSince > 350 && now - loadingSince < 25000) {
         load = { node: makeLoad(), progress: 4, tipAt: now, shownAt: now, ending: 0 };
         ensureLoadMounted();
       }
@@ -1394,10 +1518,10 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     if (!load) return;
     ensureLoadMounted();
     // A state the game never clears (an error it shows on its own screen) must not hide that screen: 25s at most.
-    if (!load.ending && ((!want && now - load.shownAt > 900) || now - load.shownAt > 25000)) load.ending = now;
+    if (!load.ending && ((!want && now - load.shownAt > 450) || now - load.shownAt > 25000)) load.ending = now;
     if (load.ending) {
-      load.progress = Math.min(100, load.progress + 12);
-      if (load.progress >= 100 && now - load.ending > 260) {
+      load.progress = Math.min(100, load.progress + 30);
+      if (load.progress >= 100 && now - load.ending > 120) {
         const node = load.node;
         node.setAttribute("data-out", "");
         load = null;
@@ -1635,7 +1759,7 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
     const c = w && w.cards.find((x) => x.name === sdEditing);
     for (const box of root.querySelectorAll("[data-gfx-sd-edit]")) {
       const e = c ? sdEntry(c.name) : {};
-      const key = c ? [c.name, e.url || "", JSON.stringify(e.cheeks || []), cheekR(c.name), JSON.stringify(e.lines || []), e.pinch || ""].join("|") : "";
+      const key = c ? [c.name, e.url || "", JSON.stringify(e.cheeks || []), cheekR(c.name), JSON.stringify(e.lines || []), e.pinch || "", faceOf(c.name)].join("|") : "";
       if (box.getAttribute("data-key") === key) continue;
       box.setAttribute("data-key", key);
       box.textContent = "";
@@ -1687,6 +1811,14 @@ ${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px
       }
       size.append(chip("볼 지우기", () => saveSdEntry(c.name, { cheeks: [] }).then(() => paintSettings())));
       side.append(size);
+      side.append(hint("그림 속 캐릭터가 바라보는 쪽 — 로비에서 걷는 방향, 스토리·전투에서 서로 마주 보는 방향이 이것을 따릅니다.", ""));
+      const face = el("div", "st-chips");
+      for (const [f, label] of [["left", "← 왼쪽을 봄"], ["front", "정면"], ["right", "오른쪽을 봄 →"]]) {
+        const b = chip(label, () => saveSdEntry(c.name, { face: f }).then(() => { paintSettings(); refresh(); }));
+        b.setAttribute("aria-pressed", String(faceOf(c.name) === f));
+        face.append(b);
+      }
+      side.append(face);
       const field = (label, value, save) => {
         const lab = el("label", "gfx-field");
         lab.append(el("span", "", label));
