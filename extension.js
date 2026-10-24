@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.35 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.36 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -771,7 +771,9 @@ ${F} .cbt-act .a-cost, ${F} .cbt-act .a-chip { color: #fff !important; text-shad
 ${F} .cbt-act .cbt-tip { bottom: calc(100% + 0.6em) !important; top: auto !important; }
 
 /* ── Team: formation slots and the battle briefing ──────────────────────────────────────────────── */
-${TM} .slot[data-gfx-sd] { overflow: visible !important; }
+/* The SD fits inside its slot now, so the slot trims its contents to its rounded corners again. */
+${TM} .slot[data-gfx-sd] { overflow: hidden !important; }
+${TM} .slot .slot-art { border-radius: 12px 12px 0 0 !important; }
 ${TM} .slot[data-gfx-sd] .slot-art { background: radial-gradient(70% 40% at 50% 92%, color-mix(in srgb, var(--gfx-line) 30%, transparent), transparent 70%),
   linear-gradient(170deg, var(--gfx-sky1), var(--gfx-sky2)) !important; }
 ${TM} .slot[data-gfx-sd] .slot-art img { opacity: 0 !important; }
@@ -997,6 +999,12 @@ ${T} .gf-bar-slot { overflow: clip !important; overflow-clip-margin: .5em; }
 ${T} :is(.grid-scroll, .rail-scroll) { padding: .55em .5em .75em !important; box-sizing: border-box; }
 ${T} [data-screen="banner"] .rail-scroll { display: flex; flex-direction: column; gap: .6em; }
 ${T} .slot { overflow: hidden; }
+/* Formation slots: one even outline all round; the rarity colour is a band inside the top edge that the rounded
+ * corners trim (a thicker top border in another colour met the sides at an angle and broke the corners). */
+${T} .slot.filled { position: relative; border: 2px solid var(--gfx-line) !important; }
+${T} .slot.filled::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: max(1.6em, 24px); z-index: 3; pointer-events: none; background: linear-gradient(var(--slot-rare, var(--steel)) 0 .32em, transparent .32em); border-top-left-radius: inherit; border-top-right-radius: inherit; }
+${T} .slot.filled.r4 { --slot-rare: #A274E0; }
+${T} .slot.filled.r5 { --slot-rare: #F2B600; }
 /* Formation: room between a row label and its slots (the slots' coloured top edge ran into the label). */
 ${T} .board .slots { padding-top: .7em !important; }
 ${T} .board .row-lab { margin-bottom: .15em !important; }
