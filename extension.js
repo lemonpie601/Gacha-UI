@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.25 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.26 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -158,18 +158,22 @@
   /* null when the read failed (network, server busy) — not the same as "nothing saved". Treating a failed read
    * as empty used to let the next save write an almost empty SD list over the real one: lines and cheeks were
    * wiped while the pictures came back from the gallery. */
+  /* Marinara's own storage helper first; if it is refused (from another device — Tailscale, a phone — it may not
+   * carry the admin secret), the storage address directly, with the secret and the CSRF header. */
   async function storeGet() {
-    try {
-      if (MARINARA?.storage?.get) {
+    if (MARINARA?.storage?.get) {
+      try {
         const value = await MARINARA.storage.get();
         return value && typeof value === "object" ? value : {};
-      }
-      if (!storeUrl) return {};
-      const res = await fetch(storeUrl, { credentials: "same-origin" });
-      if (!res.ok) return null;
+      } catch (e) { lastStoreError = e.message; }
+    }
+    if (!storeUrl) return MARINARA?.storage?.get ? null : {};
+    try {
+      const res = await fetch(storeUrl, { credentials: "same-origin", headers: CSRF });
+      if (!res.ok) { lastStoreError = "HTTP " + res.status; return null; }
       const data = await res.json();
       return data && data.value && typeof data.value === "object" ? data.value : {};
-    } catch { return null; }
+    } catch (e) { lastStoreError = e.message; return null; }
   }
   // Worlds whose SD list was read from the server this session; only those are written back.
   const sdReadOk = new Set();
@@ -237,7 +241,9 @@
         lastStoreError = "";
         return true;
       } catch (e) { lastStoreError = e.message; }
-    } else if (storeUrl) {
+    }
+    // The helper was refused or is missing: the storage address directly.
+    if (storeUrl) {
       try {
         const res = await fetch(storeUrl, { method: "PATCH", credentials: "same-origin", headers: JSON_HEADERS, body: JSON.stringify(all) });
         if (res.ok) {
