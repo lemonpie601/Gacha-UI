@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.1 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.2 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -487,6 +487,7 @@ ${H("[data-gfx-motion]")} .cbt.hit[data-gfx-sd] > img.gfx-sd { animation: gfx-sq
 .gfx-load-host { position: absolute; inset: 0; z-index: 2147482999; overflow: hidden; pointer-events: none; contain: layout paint; }
 .gfx-load-host > .gfx-load { pointer-events: auto; }
 ${T} .gf-stage:has(> .gfx-load-host), ${T} .gf-arena:has(> .gfx-load-host) { position: relative !important; overflow: hidden !important; }
+.gfx-load[data-shown] { animation: none; }
 .gfx-load[data-out] { animation: gfx-load-out 260ms ease both; pointer-events: none; }
 @keyframes gfx-load-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes gfx-load-out { to { opacity: 0; transform: scale(1.03); } }
@@ -2337,11 +2338,13 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     farm: (h) => h._farmState === "loading", roster: (h) => h._rosterState === "loading",
     inventory: (h) => h._inventoryState === "loading", formation: (h) => h._formationState === "loading",
   };
+  // Returns false, "heavy" (boot, entering a battle, writing a story beat) or "light" (a menu fetching its list).
+  const HEAVY_VIEWS = new Set(["combat", "beat"]);
   function loadingNow(h) {
     if (!h || !h.shadowRoot) return false;
-    if (h._boot === "idle" || h._boot === "loading") return true;
+    if (h._boot === "idle" || h._boot === "loading") return "heavy";
     const test = LOADING_BY_VIEW[h._hudView];
-    try { return !!(test && test(h)); } catch { return false; }
+    try { return test && test(h) ? (HEAVY_VIEWS.has(h._hudView) ? "heavy" : "light") : false; } catch { return false; }
   }
   let load = null; // { node, since, progress, tipAt, shownAt, ending }
   function makeLoad() {
@@ -2398,25 +2401,34 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     if (!mount) { mount = el("div", "gfx-load-host"); target.append(mount); }
     if (load.node.parentNode !== mount) mount.append(load.node);
   }
-  let loadingSince = 0;
+  /* A screen change (chapter list → chapter) loads in short bursts, and the game redraws its stage between them.
+   * The screen used to open on each burst and replay its fade-in each time the redraw re-attached it — a blink
+   * every few frames. Now: a menu's own short fetch gets the screen only past 1s (boot, battle and story past
+   * 0.35s); a gap under 0.45s between bursts counts as the same load; the fade-in plays once. */
+  let loadingSince = 0, lastWantAt = 0;
+  const LOAD_AFTER = { heavy: 350, light: 1000 }, LOAD_GAP = 450;
   function tickLoading() {
     if (disposed) return;
     const h = host();
     // The battle phase as a host attribute, for rules that differ before and during the fight.
     const phase = h && h._hudView === "combat" ? String(h._combatPhase || "") : "";
     if (h && (h.getAttribute("data-gfx-phase") || "") !== phase) { if (phase) h.setAttribute("data-gfx-phase", phase); else h.removeAttribute("data-gfx-phase"); }
-    const want = !!current && prefs.opts.loading && loadingNow(h);
+    const kind = !!current && prefs.opts.loading && loadingNow(h);
     const now = performance.now();
+    if (kind) lastWantAt = now;
+    const want = !!kind || (lastWantAt && now - lastWantAt < LOAD_GAP);
     if (want) {
       if (!loadingSince) loadingSince = now;
-      // Short waits stay quiet: only a load still running after 160ms gets the screen (and a stuck one only once).
-      if (!load && now - loadingSince > 350 && now - loadingSince < 25000) {
+      // Short waits stay quiet: only a load still running past its threshold gets the screen (a stuck one only once).
+      if (!load && kind && now - loadingSince > LOAD_AFTER[kind] && now - loadingSince < 25000) {
         load = { node: makeLoad(), progress: 4, tipAt: now, shownAt: now, ending: 0 };
         ensureLoadMounted();
       }
     } else loadingSince = 0;
     if (!load) return;
     ensureLoadMounted();
+    // The fade-in once: re-attaching after a redraw must not replay it.
+    if (!load.node.hasAttribute("data-shown") && now - load.shownAt > 240) load.node.setAttribute("data-shown", "");
     // A state the game never clears (an error it shows on its own screen) must not hide that screen: 25s at most.
     if (!load.ending && ((!want && now - load.shownAt > 450) || now - load.shownAt > 25000)) load.ending = now;
     if (load.ending) {
