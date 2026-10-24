@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.9.1 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.0 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -871,6 +871,47 @@ ${T} [data-screen="events"] .ev-foot { min-height: 0; padding-top: .3em; }
   .gfx-vn-cast .who, .gfx-vn-cast .body, .gfx-lobby .body, .gfx-team > span { animation: none !important; transition: none !important; }
 }
 ${T} [data-screen="reveal"] .rv-card { border: 3px solid var(--gfx-line) !important; border-radius: 22px !important; box-shadow: 0 .35em 0 var(--gfx-line) !important; overflow: hidden; }
+/* Location change: the old cast steps out, a soft wipe names the new place. */
+.gfx-vn-cast-out { pointer-events: none; animation: gfx-cast-out 480ms ease forwards; }
+@keyframes gfx-cast-out { to { opacity: 0; translate: 0 6%; filter: blur(2px); } }
+.gfx-scene-wipe { position: absolute; inset: 0; z-index: 4; pointer-events: none; display: grid; place-items: center;
+  background: radial-gradient(circle, color-mix(in srgb, var(--gfx-card) 55%, transparent), color-mix(in srgb, var(--gfx-ink) 85%, transparent));
+  animation: gfx-wipe 1.45s ease forwards; }
+.gfx-scene-wipe > span { padding: .35em 1.2em; font-family: var(--display, "Jua"), sans-serif; font-size: calc(var(--f, 10px) * 1.6); color: var(--gfx-text);
+  background: var(--gfx-card); border: 3px solid var(--gfx-line); border-radius: 999px; box-shadow: 0 .2em 0 var(--gfx-line); animation: gfx-pop 420ms cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes gfx-wipe { 0% { opacity: 0; } 22% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+/* Summon capsule. The game's own charge ring is hidden while ours plays. */
+${T} [data-screen="reveal"]:has(.gfx-summon) .rv-sigil { visibility: hidden; }
+${T} [data-screen="reveal"] .rv-back { background: radial-gradient(color-mix(in srgb, #fff 45%, transparent) 18%, transparent 19%) 0 0 / 2.4em 2.4em,
+  linear-gradient(160deg, var(--gfx-sky1), var(--gfx-ink) 50%, var(--gfx-sky2)) !important; }
+.gfx-summon { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; overflow: hidden; cursor: pointer; container-type: size;
+  background: radial-gradient(color-mix(in srgb, #fff 45%, transparent) 18%, transparent 19%) 0 0 / 2.4em 2.4em,
+    radial-gradient(circle at 50% 55%, color-mix(in srgb, var(--cap) 35%, var(--gfx-card, #FFF4D9)), var(--gfx-sky2, #BDE9DA));
+  animation: gfx-load-in 200ms ease both; }
+.gfx-summon[data-out] { animation: gfx-load-out 300ms ease forwards; pointer-events: none; }
+.gfx-cap { width: 34cqmin; aspect-ratio: 1; position: relative; z-index: 2; transform-origin: 50% 90%;
+  animation: gfx-cap-drop 620ms cubic-bezier(.3,1.5,.5,1) both, gfx-cap-wobble 700ms ease-in-out 680ms 1 both; }
+.gfx-cap svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 1.2cqmin 0 rgba(90,58,36,.35)); }
+.gfx-cap .cap-top { transform-origin: 15% 50%; animation: gfx-cap-open 520ms cubic-bezier(.3,1.4,.5,1) 1420ms both; }
+.gfx-cap .cap-bot { transform-origin: 50% 100%; animation: gfx-cap-sink 520ms ease 1420ms both; }
+.gfx-cap .cap-band { transform-origin: 50% 50%; animation: gfx-cap-pop 360ms ease 1420ms both; }
+@keyframes gfx-cap-pop { 40% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(.2); opacity: 0; } }
+@keyframes gfx-cap-drop { 0% { transform: translateY(-120cqh) rotate(-20deg); } 70% { transform: translateY(0) scale(1.08, .9); } 100% { transform: translateY(0) scale(1); } }
+@keyframes gfx-cap-wobble { 0%, 100% { rotate: 0deg; } 20% { rotate: -14deg; } 45% { rotate: 12deg; } 70% { rotate: -7deg; } 85% { rotate: 4deg; } }
+@keyframes gfx-cap-open { to { transform: translate(-6%, -42%) rotate(-38deg); opacity: 0; } }
+@keyframes gfx-cap-sink { to { transform: translateY(18%) scale(.9); opacity: 0; } }
+.gfx-cap-rays { position: absolute; width: 160cqmin; aspect-ratio: 1; z-index: 1; opacity: 0;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--cap) 70%, #fff) 0 10deg, transparent 10deg 22deg);
+  mask: radial-gradient(circle, #000 15%, transparent 62%); -webkit-mask: radial-gradient(circle, #000 15%, transparent 62%);
+  animation: gfx-cap-rays 1.2s ease 1420ms both; }
+@keyframes gfx-cap-rays { 0% { opacity: 0; transform: scale(.3) rotate(0deg); } 30% { opacity: 1; } 100% { opacity: .85; transform: scale(1) rotate(40deg); } }
+.gfx-cap-confetti { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.gfx-cap-confetti i { position: absolute; left: 50%; top: 52%; width: 2.2cqmin; height: 3.4cqmin; border-radius: .6cqmin; background: var(--c); opacity: 0;
+  transform: rotate(var(--a)) translateY(0); animation: gfx-cap-burst 900ms cubic-bezier(.2,.8,.4,1) 1480ms both; }
+@keyframes gfx-cap-burst { 0% { opacity: 1; transform: rotate(var(--a)) translateY(0) rotate(0deg); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(-1 * var(--d))) rotate(320deg); } }
+.gfx-cap-label { position: absolute; z-index: 4; top: 64%; font-family: var(--display, "Jua"), sans-serif; font-size: 7cqmin; color: #fff;
+  -webkit-text-stroke: .9cqmin #5A3A24; paint-order: stroke fill; opacity: 0; animation: gfx-pop 420ms cubic-bezier(.3,1.6,.5,1) 1560ms both; }
+.gfx-summon[data-rarity="5"] .gfx-cap-label { color: #FFD34E; font-size: 9cqmin; }
 ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-card) 94%, transparent) !important; border-top: 3px solid var(--gfx-line) !important; }
 `;
 
@@ -1247,6 +1288,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       } else if (!field && tiles) tiles.remove();
     }
     paintScroll(root, on && prefs.opts.autoScroll);
+    paintSummon(root, on && prefs.opts.motion);
     paintTeam(root, on && prefs.opts.team);
     paintLobby(root, on && prefs.opts.lobby);
     paintAttend(root, on && prefs.opts.attend);
@@ -1282,6 +1324,47 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     const row = target.closest(".node-row, .node, .ch, li, article") || target;
     const top = row.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
     box.scrollTo({ top: Math.max(0, top - box.clientHeight / 2 + row.getBoundingClientRect().height / 2), behavior: "smooth" });
+  }
+
+  /* ── Summon (Trickcal manner) ──
+   * The game's reveal screen opens with its own charge (a ring and a flash) before the cards. Under 말랑 that
+   * charge is a capsule instead: it drops in and bounces, wobbles twice, and bursts open in the colour of the
+   * best card (5★ gold, 4★ violet, 3★ sky) with rays and confetti; then it clears and the cards show. A tap
+   * anywhere skips straight to the cards. Played once per reveal screen. */
+  const CAPSULE_TOP = { 5: "#FFC93C", 4: "#B48CF0", 3: "#7EC8F2" };
+  const CAPSULE_SVG = (col) => '<svg viewBox="0 0 120 120" aria-hidden="true">'
+    + '<g class="cap-top"><path d="M10 60 A50 50 0 0 1 110 60 Z" style="fill:' + col + '" stroke="#5A3A24" stroke-width="5" stroke-linejoin="round"/>'
+    + '<ellipse cx="42" cy="34" rx="12" ry="7" fill="#fff" opacity=".65"/></g>'
+    + '<g class="cap-bot"><path d="M10 60 A50 50 0 0 0 110 60 Z" fill="#FFFDF5" stroke="#5A3A24" stroke-width="5" stroke-linejoin="round"/></g>'
+    + '<g class="cap-band"><rect x="8" y="55" width="104" height="10" rx="5" fill="#5A3A24"/><circle cx="60" cy="60" r="12" fill="#FFFDF5" stroke="#5A3A24" stroke-width="5"/></g></svg>';
+  function paintSummon(root, enabled) {
+    for (const screen of root.querySelectorAll('[data-screen="reveal"]')) {
+      if (!enabled || screen.hasAttribute("data-gfx-summon")) continue;
+      screen.setAttribute("data-gfx-summon", "");
+      // Played only for a fresh reveal, not for one the game redraws when it is already showing the cards.
+      if (screen.classList.contains("phase-done") && screen.querySelector(".rv-card.revealed")) continue;
+      const best = Math.max(3, ...Array.from(screen.querySelectorAll(".rv-card")).map((c) => Number((c.className.match(/\br(\d)\b/) || [])[1]) || 3));
+      const fx = el("div", "gfx-summon");
+      fx.setAttribute("data-rarity", String(Math.min(5, best)));
+      fx.style.setProperty("--cap", CAPSULE_TOP[Math.min(5, best)] || CAPSULE_TOP[3]);
+      const ball = el("div", "gfx-cap");
+      ball.innerHTML = CAPSULE_SVG(CAPSULE_TOP[Math.min(5, best)] || CAPSULE_TOP[3]);
+      const rays = el("div", "gfx-cap-rays");
+      const confetti = el("div", "gfx-cap-confetti");
+      for (let i = 0; i < 18; i++) {
+        const c = el("i");
+        c.style.setProperty("--a", (i * 20 + Math.random() * 12).toFixed(0) + "deg");
+        c.style.setProperty("--d", (38 + Math.random() * 22).toFixed(0) + "cqmin");
+        c.style.setProperty("--c", ["#FF8FB1", "#FFD34E", "#7FD39A", "#6FB2F2", "#B48CF0", "var(--cap)"][i % 6]);
+        confetti.append(c);
+      }
+      const label = el("div", "gfx-cap-label", best >= 5 ? "★★★★★!!" : best >= 4 ? "★★★★!" : "뿅!");
+      fx.append(rays, ball, confetti, label);
+      const end = () => { fx.setAttribute("data-out", ""); setTimeout(() => fx.remove(), 320); };
+      on(fx, "click", (e) => { e.stopPropagation(); end(); });
+      screen.append(fx);
+      setTimeout(end, best >= 5 ? 2600 : 2200);
+    }
   }
 
   /* ── Story cast line-up (Trickcal manner) ──
@@ -1376,7 +1459,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     const bg = bgImage?.getAttribute("src") || bgBox?.style.backgroundImage || (bgBox ? getComputedStyle(bgBox).backgroundImage : "") || "";
     const caption = (root.querySelector(".vn-caption")?.textContent || "").trim();
     const place = segments[Number(h?._beatAt) || 0]?.place || "";
-    return { mode, sceneKey: caption + "|" + place + "|" + bg, slots: slots.slice(-MAX_STORY_CAST) };
+    return { mode, sceneKey: caption + "|" + place + "|" + bg, place: place || caption.split(/\s*·\s*/)[0] || "", slots: slots.slice(-MAX_STORY_CAST) };
   }
   function clampCastPosition(layer, node) {
     if (!layer.clientWidth || !node.offsetWidth) return;
@@ -1400,6 +1483,20 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     }
     const slots = snapshot.slots;
     if (layer.getAttribute("data-scene") !== snapshot.sceneKey) {
+      // A new place (or scene): the cast that was there steps out under a soft wipe naming where we are now,
+      // instead of vanishing in one frame.
+      if (layer.childElementCount && layer.hasAttribute("data-scene") && prefs.opts.motion) {
+        const ghost = layer.cloneNode(true);
+        ghost.classList.add("gfx-vn-cast-out");
+        ghost.removeAttribute("data-key");
+        layer.after(ghost);
+        setTimeout(() => ghost.remove(), 520);
+        const place = String(snapshot.place || "").trim();
+        const wipe = el("div", "gfx-scene-wipe");
+        if (place) wipe.append(el("span", "", place));
+        stage.append(wipe);
+        setTimeout(() => wipe.remove(), 1500);
+      }
       layer.replaceChildren();
       layer.setAttribute("data-scene", snapshot.sceneKey);
     }
@@ -1941,7 +2038,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       const st = roam.get(who.getAttribute("data-name"));
       if (!st) continue;
       const busy = document.hidden || !prefs.opts.motion || lobbyEdit || who.hasAttribute("data-talk") || who.hasAttribute("data-pinch")
-        || !!lobby.parentElement?.querySelector("[data-chat-close]");
+        || !!gameRoot()?.querySelector("[data-chat-close]");
       let walking = false;
       if (!busy && dt) {
         if (st.wait > 0) { st.wait -= dt; if (st.wait <= 0) pickTarget(st); }
