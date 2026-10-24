@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.6.2 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.6.3 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -1174,10 +1174,11 @@ img.baked { filter: none !important; }
     for (let n = node; n && n !== stop; n = n.parentElement) { const t = getComputedStyle(n).transform; if (t && t.startsWith("matrix(-")) m = !m; }
     return m;
   }
-  function startPinch(img, e, cheeks, rFrac, stop, done) {
+  function startPinch(img, e, cheeks, rFrac, stop, done, allowFree = true) {
     if (!img || !img.complete || !img.naturalWidth) return false;
     // No cheek set for this SD: any press in the top part (the head of a chibi) pinches right where it lands.
     if (!cheeks || !cheeks.length) {
+      if (!allowFree) return false;
       const b0 = img.getBoundingClientRect();
       const fy = (e.clientY - b0.top) / b0.height;
       if (!b0.height || fy < 0.08 || fy > 0.55) return false;
@@ -1348,6 +1349,7 @@ img.baked { filter: none !important; }
     } finally {
       linesBusy = false;
       sdEditKey = "";
+      linesRev++;
       paintSettings();
     }
   }
@@ -1948,13 +1950,14 @@ img.baked { filter: none !important; }
   }
 
   /* ── One character's editor: cheek points on the sprite, its three lines and its pinch reaction ── */
-  let sdEditing = "", sdEditKey = "";
+  // linesRev moves when the AI rewrites lines, so the editor shows them; typing never rebuilds it.
+  let sdEditing = "", sdEditKey = "", linesRev = 0;
   function paintSdEditor(root) {
     const w = world();
     const c = w && w.cards.find((x) => x.name === sdEditing);
     for (const box of root.querySelectorAll("[data-gfx-sd-edit]")) {
       const e = c ? sdEntry(c.name) : {};
-      const key = c ? [c.name, e.url || "", JSON.stringify(e.cheeks || []), cheekR(c.name), JSON.stringify(e.lines || []), e.pinch || "", faceOf(c.name)].join("|") : "";
+      const key = c ? [c.name, e.url || "", JSON.stringify(e.cheeks || []), cheekR(c.name), faceOf(c.name), linesRev].join("|") : "";
       if (box.getAttribute("data-key") === key) continue;
       box.setAttribute("data-key", key);
       box.textContent = "";
@@ -1981,7 +1984,7 @@ img.baked { filter: none !important; }
         let pinched = false;
         on(pad, "pointerdown", (ev) => {
           ev.stopPropagation();
-          pinched = startPinch(img, ev, cheeksOf(c.name), cheekR(c.name), pad, (pulled) => { if (pulled) setEditNote(pinchFor(c.name)); });
+          pinched = startPinch(img, ev, cheeksOf(c.name), cheekR(c.name), pad, (pulled) => { if (pulled) setEditNote(pinchFor(c.name)); }, false);
         });
         on(pad, "click", (ev) => {
           ev.stopPropagation();
@@ -2029,16 +2032,17 @@ img.baked { filter: none !important; }
       };
       const lines = Array.isArray(e.lines) ? e.lines.slice(0, 3) : [];
       for (let i = 0; i < 3; i++) {
-        side.append(field("대사 " + (i + 1), lines[i], (v) => { const next = (sdEntry(c.name).lines || []).slice(0, 3); while (next.length < 3) next.push(""); next[i] = v; saveSdEntry(c.name, { lines: next }); }));
+        side.append(field("대사 " + (i + 1), lines[i], (v) => { const next = (sdEntry(c.name).lines || []).slice(0, 3); while (next.length < 3) next.push(""); next[i] = v; saveSdEntry(c.name, { lines: next }).then(() => setEditNote(lastStoreError ? "이 브라우저에 보관, 서버 저장은 다시 시도합니다 (" + lastStoreError + ")" : "저장했습니다", true)); }));
       }
-      side.append(field("볼을 꼬집혔을 때", e.pinch, (v) => saveSdEntry(c.name, { pinch: v })));
+      side.append(field("볼을 꼬집혔을 때", e.pinch, (v) => saveSdEntry(c.name, { pinch: v }).then(() => setEditNote(lastStoreError ? "이 브라우저에 보관, 서버 저장은 다시 시도합니다 (" + lastStoreError + ")" : "저장했습니다", true))));
       const note = hint("", "");
       note.setAttribute("data-gfx-edit-note", "");
       side.append(note);
     }
   }
-  function setEditNote(text) {
-    for (const n of gameRoot()?.querySelectorAll("[data-gfx-edit-note]") || []) n.textContent = "“" + text + "”";
+  // A spoken line shows in quotes; a save status (plain) does not.
+  function setEditNote(text, plain = false) {
+    for (const n of gameRoot()?.querySelectorAll("[data-gfx-edit-note]") || []) n.textContent = plain ? text : "“" + text + "”";
   }
 
   function paintSettings(full = false) {
