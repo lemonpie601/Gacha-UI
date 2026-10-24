@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.6.6 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.9.1 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -23,8 +23,10 @@
   const ATTR = "data-gfx-style";
   const STORE = "gfx-ui-style";
   const CACHE = "gfx-ui-style-cache";
-  // Given by Marinara's full-page wrapper; without it (pasted by hand) server storage is skipped.
-  const EXT_ID = typeof extension !== "undefined" && extension && extension.id ? String(extension.id) : "";
+  // Modern full-page extensions receive `marinara`; keep the older `extension.id` fallback for old engines.
+  const MARINARA = typeof marinara !== "undefined" && marinara ? marinara : null;
+  const EXT_ID = MARINARA?.extensionId ? String(MARINARA.extensionId)
+    : typeof extension !== "undefined" && extension && extension.id ? String(extension.id) : "";
   const FONT_FAMILIES = ["Jua", "Gowun Dodum"];
   const STYLES = [["trickcal", "말랑", "트릭컬풍 · 색은 직접 고르기"]];
 
@@ -61,9 +63,10 @@
   const DEFAULT_OPTS = { box: true, sticker: true, motion: true, storySd: true, battleSd: true, loading: true,
     field: true, team: true, lobby: true, hidePlate: true, attend: true, autoScroll: true };
   const LOBBY_LINES = ["반가워!", "오늘도 힘내자~", "말랑말랑…", "간식 없어?", "같이 모험 가자!", "쿨쿨…", "볼 꼬집지 마!", "어디 가?", "히히, 들켰다!", "출석 도장 찍었어?"];
+  const OLD_GEN_TEMPLATE = "5::chibi, chibi only::, solo, Transparent background, full body, standing, looking at viewer, {appearance}";
   const DEFAULT_GEN = {
     connectionId: "",
-    template: "5::chibi, chibi only::, solo, Transparent background, full body, standing, looking at viewer, {appearance}",
+    template: "4::chibi, chibi only::, solo, Transparent background, 1.2::full body::, shoes, standing, looking at viewer, {appearance}",
     negative: "multiple views, text, watermark, scenery, background",
     size: "832x1216",
   };
@@ -80,7 +83,9 @@
   ];
 
   const life = new AbortController();
-  const on = (target, type, fn, opts = {}) => target.addEventListener(type, fn, { ...opts, signal: life.signal });
+  // Disposable DOM nodes own their listeners; a global abort signal would retain every redrawn SD/editor.
+  const on = (target, type, fn, opts = {}) => target.addEventListener(type, fn,
+    target === window || target === document || target instanceof ShadowRoot ? { ...opts, signal: life.signal } : opts);
   let disposed = false;
 
   function readStyle() {
@@ -111,23 +116,39 @@
         home[run][name] = { on: e.on !== false, x: num(e.x, 0, 100, NaN), y: num(e.y, 0, 100, NaN), s: num(e.s, 0.4, 2.5, 1) };
       }
     }
+    const homeScene = {};
+    for (const [run, raw] of Object.entries(p.homeScene && typeof p.homeScene === "object" ? p.homeScene : {})) {
+      if (!raw || typeof raw !== "object") continue;
+      const backY = num(raw.backY, 42, 88, 66);
+      const frontY = num(raw.frontY, backY + 8, 96, 94);
+      const backL = num(raw.backL, 0, 94, 22), backR = num(raw.backR, backL + 6, 100, 78);
+      const frontL = num(raw.frontL, 0, 94, 3), frontR = num(raw.frontR, frontL + 6, 100, 97);
+      homeScene[run] = {
+        vpX: num(raw.vpX, 0, 100, 50), vpY: num(raw.vpY, 0, Math.max(0, backY - 4), 42),
+        backL, backR, backY, frontL, frontR, frontY,
+      };
+    }
     const g = p.gen && typeof p.gen === "object" ? p.gen : {};
     const gen = {
       connectionId: typeof g.connectionId === "string" ? g.connectionId : "",
-      template: typeof g.template === "string" && g.template.trim() ? g.template : DEFAULT_GEN.template,
+      template: typeof g.template === "string" && g.template.trim() && g.template !== OLD_GEN_TEMPLATE ? g.template : DEFAULT_GEN.template,
       negative: typeof g.negative === "string" ? g.negative : DEFAULT_GEN.negative,
       size: SIZES.some(([s]) => s === g.size) ? g.size : DEFAULT_GEN.size,
     };
     const lobbyScale = typeof p.lobbyScale === "number" && Number.isFinite(p.lobbyScale) ? Math.min(2, Math.max(0.5, p.lobbyScale)) : 1;
-    return { colors, preset: typeof p.preset === "string" ? p.preset : "", opts, gen, home, lobbyScale };
+    return { colors, preset: typeof p.preset === "string" ? p.preset : "", opts, gen, home, homeScene, lobbyScale };
   }
   let prefs = normalizePrefs((() => { try { return JSON.parse(localStorage.getItem(CACHE) || "null"); } catch { return null; } })());
 
   /* ═════════════ Server storage (this extension's own) ═════════════ */
   const storeUrl = EXT_ID ? "/api/personal-extensions/" + encodeURIComponent(EXT_ID) + "/storage" : "";
   async function storeGet() {
-    if (!storeUrl) return {};
     try {
+      if (MARINARA?.storage?.get) {
+        const value = await MARINARA.storage.get();
+        return value && typeof value === "object" ? value : {};
+      }
+      if (!storeUrl) return {};
       const res = await fetch(storeUrl, { credentials: "same-origin" });
       const data = res.ok ? await res.json() : null;
       return data && data.value && typeof data.value === "object" ? data.value : {};
@@ -142,17 +163,37 @@
   const PENDING = "gfx-ui-style-pending";
   let lastStoreError = "";
   const readPending = () => { try { const v = JSON.parse(localStorage.getItem(PENDING) || "{}"); return v && typeof v === "object" ? v : {}; } catch { return {}; } };
-  async function storePatch(patch) {
+  let storeQueue = Promise.resolve();
+  function pendingMatches(sent) {
+    try { return JSON.stringify(readPending()) === JSON.stringify(sent); } catch { return false; }
+  }
+  async function sendStorePatch(patch) {
     const all = { ...readPending(), ...patch };
-    if (storeUrl) {
+    try { localStorage.setItem(PENDING, JSON.stringify(all)); } catch {}
+    if (MARINARA?.storage?.patch) {
+      try {
+        await MARINARA.storage.patch(all);
+        if (pendingMatches(all)) try { localStorage.removeItem(PENDING); } catch {}
+        lastStoreError = "";
+        return true;
+      } catch (e) { lastStoreError = e.message; }
+    } else if (storeUrl) {
       try {
         const res = await fetch(storeUrl, { method: "PATCH", credentials: "same-origin", headers: JSON_HEADERS, body: JSON.stringify(all) });
-        if (res.ok) { try { localStorage.removeItem(PENDING); } catch {} lastStoreError = ""; return true; }
+        if (res.ok) {
+          if (pendingMatches(all)) try { localStorage.removeItem(PENDING); } catch {}
+          lastStoreError = "";
+          return true;
+        }
         lastStoreError = "HTTP " + res.status + " " + ((await res.json().catch(() => null))?.error || "");
       } catch (e) { lastStoreError = e.message; }
     } else lastStoreError = "확장 ID 없음";
-    try { localStorage.setItem(PENDING, JSON.stringify(all)); } catch {}
     return false;
+  }
+  function storePatch(patch) {
+    const job = () => sendStorePatch(patch);
+    storeQueue = storeQueue.then(job, job);
+    return storeQueue;
   }
   const retryTimer = setInterval(() => { if (!disposed && Object.keys(readPending()).length) storePatch({}); }, 15000);
   let saveTimer = 0;
@@ -340,13 +381,56 @@ ${T} .vn-plate[data-gfx-sd] > img.gfx-sd {
 /* The cast line-up: large SDs standing behind the dialogue box (the box is the game's, untouched). */
 ${T} .vn-plate[data-gfx-sd] { opacity: 0 !important; }
 .gfx-vn-cast { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
-.gfx-vn-cast .who { position: absolute; bottom: -14%; height: calc(92% * var(--hf, 1)); aspect-ratio: 0.68; translate: -50% 0; z-index: 1;
+.gfx-vn-cast .who { position: absolute; bottom: 0; height: 86%; aspect-ratio: 0.68; translate: -50% 0; z-index: 1;
   filter: brightness(0.6) saturate(0.85); scale: 0.94; transform-origin: 50% 100%;
   transition: left 420ms cubic-bezier(.3,1.3,.5,1), filter 250ms ease, scale 250ms ease; animation: gfx-cast-in 380ms ease both; }
 .gfx-vn-cast .who[data-speaking] { filter: none; scale: 1; z-index: 2; }
-.gfx-vn-cast .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-breathe 3.4s ease-in-out infinite; }
+.gfx-vn-cast .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; scale: var(--hf, 1); animation: gfx-breathe 3.4s ease-in-out infinite; }
 .gfx-vn-cast .who[data-hop] .body { animation: gfx-talk-hop 380ms ease, gfx-breathe 3.4s ease-in-out 380ms infinite; }
-.gfx-vn-cast img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; filter: ${STICKER}; -webkit-user-drag: none; }
+.gfx-vn-cast img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none !important; max-height: none !important; object-fit: contain; object-position: 50% 100%; filter: ${STICKER}; -webkit-user-drag: none; }
+.gfx-vn-cast img.portrait { padding: 3%; box-sizing: border-box; object-fit: contain; object-position: 50% 12%; background: #fff; border: 3px solid #fff; outline: 2.5px solid var(--gfx-line); border-radius: 18px; filter: none; }
+.gfx-vn-placeholder { position: absolute; inset: 15% 5% 0; display: flex; flex-direction: column; justify-content: end; align-items: center; color: var(--gfx-text); }
+.gfx-vn-placeholder svg { width: 85%; max-height: 85%; }
+.gfx-vn-placeholder > span { padding: .3em .8em; border: 2px solid var(--gfx-line); border-radius: 999px; background: var(--gfx-card); }
+.vn[data-cg] .gfx-vn-cast { display: none; }
+.vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .gfx-vn-cast { display: none; }
+.vn .vn-choices, .vn .vn-choice, .vn [data-choice] { position: relative; z-index: 8; }
+/* Gacha Choice's shipped runtime uses gch-menu / gch-opt. */
+${T} .vn:has(.gch-menu:not([hidden])) .gfx-vn-cast { display: none !important; }
+${T} .vn .gch-menu { position: relative; z-index: 12; align-items: stretch !important; max-height: 38cqh;
+  overflow-y: auto; overscroll-behavior: contain; gap: .55em !important; padding: .35em .4em .65em; margin-bottom: .3em !important; }
+${T} .vn .gch-menu .gch-opt { display: flex !important; align-items: center; min-width: 0 !important; width: 100%;
+  box-sizing: border-box !important; border: 3px solid var(--gfx-line) !important; border-radius: 999px !important;
+  clip-path: none !important; background: var(--gfx-card) !important; color: var(--gfx-text) !important;
+  padding: .65em 1.2em !important; box-shadow: 0 .22em 0 var(--gfx-line), inset 0 .12em 0 #fff8 !important;
+  opacity: 1 !important; transform: none !important; animation: none !important; line-height: 1.4 !important;
+  white-space: normal; overflow-wrap: anywhere; transition: background .14s ease, translate .14s ease !important; }
+${T} .vn .gch-menu .gch-opt::before { border-radius: 50%; transform: none !important; background: var(--gfx-accent) !important; }
+${T} .vn .gch-menu .gch-opt:is(:hover, :focus-visible, [data-on]) { background: var(--gfx-pick) !important; outline: 2px solid var(--gfx-accent) !important; outline-offset: 2px; }
+${T} .vn .gch-menu .gch-opt:active { translate: 0 .18em; box-shadow: 0 .04em 0 var(--gfx-line) !important; }
+${T} .vn[data-cg] .vn-cast { visibility: hidden !important; }
+${T} .vn-plate:not([data-gfx-sd]) .vn-art > img { object-fit: contain !important; object-position: center bottom !important; }
+${T} .vn-dock { position: relative; z-index: 5; max-height: 58%; }
+${T} .vn:has(.gch-menu) .vn-box { max-height: 20cqh; overflow-y: auto; }
+.vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .vn-choices {
+  display: grid; gap: calc(var(--f, 10px) * 0.85); padding: calc(var(--f, 10px) * 1.2); isolation: isolate;
+}
+.vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .vn-choices .vn-choice,
+.vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .vn-choices > button {
+  border: calc(var(--f, 10px) * 0.28) solid var(--gfx-line) !important; border-radius: 999px !important;
+  background: color-mix(in srgb, var(--gfx-card) 92%, white) !important; color: var(--gfx-text) !important;
+  box-shadow: 0 calc(var(--f, 10px) * 0.5) 0 var(--gfx-line), inset 0 calc(var(--f, 10px) * 0.22) 0 #fff8 !important;
+  padding: calc(var(--f, 10px) * 1.05) calc(var(--f, 10px) * 2.2) !important;
+  transition: translate .14s ease, scale .14s ease, box-shadow .14s ease, background .14s ease;
+}
+.vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .vn-choices .vn-choice:hover,
+.vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .vn-choices > button:hover {
+  background: var(--gfx-pick) !important; translate: 0 calc(var(--f, 10px) * -0.18); scale: 1.015;
+}
+.vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .vn-choices .vn-choice:active,
+.vn:has(.vn-choices:not([hidden]), .vn-choice:not([hidden]), [data-choice]:not([hidden])) .vn-choices > button:active {
+  translate: 0 calc(var(--f, 10px) * 0.34); scale: .985; box-shadow: 0 calc(var(--f, 10px) * 0.14) 0 var(--gfx-line) !important;
+}
 @keyframes gfx-cast-in { from { opacity: 0; translate: -50% 8%; } to { opacity: 1; translate: -50% 0; } }
 @keyframes gfx-talk-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-3%) scale(0.98, 1.03); } 100% { transform: none; } }
 
@@ -365,9 +449,10 @@ ${T} .cbt::after { background: linear-gradient(0deg, color-mix(in srgb, var(--gf
 ${T} .cbt .nm { color: var(--gfx-text) !important; text-shadow: ${HALO} !important; }
 ${T} .cbt[data-gfx-sd] .ava { background: radial-gradient(90% 70% at 50% 85%, var(--gfx-pick), var(--gfx-sky2) 70%, var(--gfx-sky1)) !important; }
 ${T} .cbt[data-gfx-sd] .ava-photo { opacity: 0 !important; }
+${T} .cbt[data-gfx-sd] { overflow: visible !important; }
 ${T} .cbt[data-gfx-sd] > img.gfx-sd {
   position: absolute; left: -6%; right: -6%; bottom: 16%; height: calc(96% * var(--hf, 1)); width: 112%; z-index: 2;
-  object-fit: contain; object-position: 50% 100%; filter: ${STICKER}; transform-origin: 50% 100%; pointer-events: none;
+  max-width: none !important; max-height: none !important; object-fit: contain; object-position: 50% 100%; filter: ${STICKER}; transform-origin: 50% 100%; pointer-events: none;
 }
 
 /* ── Motion ────────────────────────────────────────────────────────────────────────────────────── */
@@ -397,6 +482,9 @@ ${H("[data-gfx-motion]")} .cbt.hit[data-gfx-sd] > img.gfx-sd { animation: gfx-sq
     linear-gradient(160deg, var(--gfx-sky1), color-mix(in srgb, var(--gfx-sky1) 45%, var(--gfx-ink)) 45%, var(--gfx-sky2));
   animation: gfx-load-in 220ms ease both;
 }
+.gfx-load-host { position: absolute; inset: 0; z-index: 2147482999; overflow: hidden; pointer-events: none; contain: layout paint; }
+.gfx-load-host > .gfx-load { pointer-events: auto; }
+${T} .gf-stage:has(> .gfx-load-host), ${T} .gf-arena:has(> .gfx-load-host) { position: relative !important; overflow: hidden !important; }
 .gfx-load[data-out] { animation: gfx-load-out 260ms ease both; pointer-events: none; }
 @keyframes gfx-load-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes gfx-load-out { to { opacity: 0; transform: scale(1.03); } }
@@ -550,7 +638,7 @@ ${TM} .slot[data-gfx-sd] .slot-art { background: radial-gradient(70% 40% at 50% 
   linear-gradient(170deg, var(--gfx-sky1), var(--gfx-sky2)) !important; }
 ${TM} .slot[data-gfx-sd] .slot-art img { opacity: 0 !important; }
 ${TM} .slot[data-gfx-sd] > img.gfx-sd { position: absolute; left: -10%; width: 120%; bottom: 14%; height: calc(108% * var(--hf, 1)); object-fit: contain; object-position: 50% 100%;
-  filter: ${STICKER}; pointer-events: none; z-index: 2; animation: gfx-float 2.6s ease-in-out infinite; }
+  max-width: none !important; max-height: none !important; filter: ${STICKER}; pointer-events: none; z-index: 2; animation: gfx-float 2.6s ease-in-out infinite; }
 ${TM} .slot.filled:nth-child(2) > img.gfx-sd { animation-delay: -0.9s; } ${TM} .slot.filled:nth-child(3) > img.gfx-sd { animation-delay: -1.7s; }
 @keyframes gfx-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6%); } }
 .gfx-team { display: flex; justify-content: center; align-items: flex-end; gap: 1.2em; height: calc(var(--f, 10px) * 13); margin: 0.4em 0 1.4em; pointer-events: none; }.gfx-team > span { position: relative; height: 100%; aspect-ratio: 2 / 3; display: grid; place-items: end center; animation: gfx-float 2.4s ease-in-out infinite; }
@@ -561,8 +649,15 @@ ${TM} .slot.filled:nth-child(2) > img.gfx-sd { animation-delay: -0.9s; } ${TM} .
 .gfx-team.win > span { animation: gfx-cheer 0.9s cubic-bezier(.4,0,.6,1) infinite; }
 .gfx-team.win > span::after { animation: gfx-shadow 0.9s ease-in-out infinite; }
 @keyframes gfx-cheer { 0%, 100% { transform: translateY(0) scale(1.06, 0.94); } 50% { transform: translateY(-22%) scale(0.96, 1.05); } }
-.gfx-team img { max-width: 140%; max-height: calc(100% * var(--hf, 1)); object-fit: contain; filter: ${STICKER}; }
-.gfx-team img.portrait { width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; border-radius: 14px; border: 3px solid #fff; outline: 2.5px solid var(--gfx-line, #6B4528); filter: none; }
+.gfx-team img:not(.portrait) { display: block; height: 100%; width: auto; max-width: none !important; max-height: none !important; object-fit: contain; object-position: 50% 100%; scale: var(--hf, 1); transform-origin: 50% 100%; filter: ${STICKER}; }
+.gfx-team img.portrait { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; border-radius: 14px; border: 3px solid #fff; outline: 2.5px solid var(--gfx-line, #6B4528); filter: none; }
+${TM} .briefing .gfx-team { flex: 0 1 calc(var(--f, 10px) * 17); min-height: 0; width: min(88%, 110cqh); height: 24%; max-height: 26%; gap: .6em; margin: .4em 0 .8em; }
+${TM} .briefing .gfx-team > span { flex: 1 1 0; min-width: 0; aspect-ratio: auto; animation: none; }
+${TM} .briefing .gfx-team img { width: 100% !important; max-width: 100% !important; height: 100%; object-fit: contain; }
+${TM} .briefing .gfx-team img:not(.portrait) { scale: 1; }
+${TM} .briefing .gfx-team > span::after { bottom: 0; animation: none; }
+${TM} .briefing { gap: calc(var(--f, 10px) * .7); overflow: hidden; }
+${TM} .slot[data-gfx-sd] > img.gfx-sd { left: 5%; width: 90%; bottom: 18%; height: 78%; }
 
 /* ── Home lobby ─────────────────────────────────────────────────────────────────────────────────── */
 ${HP} .hm-plate { display: none !important; }
@@ -611,11 +706,13 @@ ${LB} .hm-slot-bg { opacity: 0.85; }
 /* Placed by the roaming loop with a single transform (position, then depth scale round the feet). */
 .gfx-lobby .who { position: absolute; left: 0; top: 0; height: calc(40% * var(--hf, 1)); aspect-ratio: 2 / 3; transform-origin: 0 0; will-change: transform;
   pointer-events: auto; cursor: pointer; touch-action: none; }
-.gfx-lobby .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-bob 1.9s ease-in-out infinite; animation-delay: var(--bdl, 0s); }
+.gfx-lobby .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-lobby-bob 1.9s ease-in-out infinite; animation-delay: var(--bdl, 0s); }
+/* Keep the feet planted. The old shared bob translated the whole picture upward while its shadow stayed put. */
+@keyframes gfx-lobby-bob { 0%, 100% { transform: scale(1, 1) rotate(-0.35deg); } 45% { transform: scale(0.985, 1.015) rotate(0.35deg); } 65% { transform: scale(1.025, 0.975) rotate(-0.25deg); } }
 /* The image fills its box exactly; the box takes the image's own proportions (set on load), so the
    [배치] outline, the drag area and the cheek points all match the drawn sprite. */
 .gfx-lobby .who img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%;
-  filter: ${STICKER}; -webkit-user-drag: none; user-select: none; }
+  max-width: none !important; max-height: none !important; filter: ${STICKER}; -webkit-user-drag: none; user-select: none; }
 .gfx-lobby .who::after { content: ""; position: absolute; bottom: -3%; left: 20%; right: 20%; height: 7%; border-radius: 50%; z-index: -1;
   background: color-mix(in srgb, var(--gfx-line) 32%, transparent); }
 .gfx-lobby .who[data-squish] .body { animation: gfx-squash 380ms ease; }
@@ -627,11 +724,14 @@ ${LB} .hm-slot-bg { opacity: 0.85; }
 .gfx-lobby .who .flip { position: absolute; inset: 0; transition: transform 160ms ease; }
 /* Walking is a quicker, bouncier step than standing still. */
 .gfx-lobby .who[data-walk] .body { animation: gfx-step 0.44s ease-in-out infinite; }
-@keyframes gfx-step { 0%, 100% { transform: translateY(0) scale(1.02, 0.98); } 50% { transform: translateY(-3.5%) scale(0.98, 1.03); } }
+@keyframes gfx-step { 0%, 100% { transform: scale(1.02, 0.98) rotate(-1deg); } 50% { transform: scale(0.98, 1.03) rotate(1deg); } }
 .gfx-lobby .who[data-pinch] .body { animation-play-state: paused !important; cursor: grabbing; }
 .gfx-lobby[data-edit] .who { outline: 2.5px dashed var(--gfx-accent); outline-offset: 2px; border-radius: 12px; cursor: grab; }
 .gfx-lobby[data-edit] .who .body { animation: none; }
-.gfx-lobby[data-edit] { background: color-mix(in srgb, var(--gfx-ink) 25%, transparent); pointer-events: auto; }
+.gfx-lobby[data-edit] .who .flip { transition: none; }
+.gfx-lobby[data-edit] .who[data-dragging] { cursor: grabbing; }
+.gfx-lobby[data-edit] { background: color-mix(in srgb, var(--gfx-ink) 25%, transparent); pointer-events: auto; z-index: 20; }
+${LB} .hm-screen:has(.gfx-lobby[data-floor-edit]) .hm-dock { opacity: 0.14 !important; pointer-events: none !important; filter: grayscale(0.7); }
 .gfx-lobby-tools { position: absolute; left: 50%; top: 2%; translate: -50% 0; display: flex; gap: 0.5em; pointer-events: auto; z-index: 500; }
 .gfx-lobby-tools button { font-family: "Jua", "Malgun Gothic", sans-serif; font-size: calc(var(--f, 10px) * 0.95); padding: 0.3em 0.9em; cursor: pointer;
   color: var(--gfx-text); background: var(--gfx-card); border: 2px solid var(--gfx-line); border-radius: 999px; box-shadow: 0 0.18em 0 var(--gfx-line); }
@@ -643,34 +743,56 @@ ${LB} .hm-slot-bg { opacity: 0.85; }
 .gfx-lobby-cast button[aria-pressed="false"] { opacity: 0.55; background: var(--gfx-ink); }
 .gfx-lobby-cast button[aria-pressed="true"] { background: var(--gfx-pick); }
 .gfx-lobby:not([data-edit]) .gfx-lobby-tools button:not([data-edit-toggle]) { display: none; }
+.gfx-lobby-floor { position: absolute; inset: 0; z-index: 420; pointer-events: none; }
+.gfx-lobby-floor svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.gfx-lobby-floor polygon { fill: color-mix(in srgb, var(--gfx-pick) 22%, transparent); stroke: var(--gfx-accent); stroke-width: 0.45; stroke-dasharray: 1.2 0.8; vector-effect: non-scaling-stroke; }
+.gfx-lobby-floor line { stroke: color-mix(in srgb, var(--gfx-line) 68%, transparent); stroke-width: 0.3; stroke-dasharray: 0.8 0.7; vector-effect: non-scaling-stroke; }
+.gfx-lobby-floor [data-floor-handle] { position: absolute; width: calc(var(--f, 10px) * 2.25); aspect-ratio: 1; translate: -50% -50%; pointer-events: auto;
+  display: grid; place-items: center; padding: 0; border: 2.5px solid var(--gfx-line); border-radius: 50%; color: var(--gfx-text); background: var(--gfx-card);
+  font: 700 calc(var(--f, 10px) * 0.82)/1 "Jua", "Malgun Gothic", sans-serif; box-shadow: 0 0.18em 0 var(--gfx-line); cursor: grab; touch-action: none; }
+.gfx-lobby-floor [data-floor-handle="vp"] { width: calc(var(--f, 10px) * 2.8); background: var(--gfx-pick); }
+.gfx-lobby-floor [data-floor-handle]:active { cursor: grabbing; scale: 1.08; }
+.gfx-floor-edge { position: absolute; height: 0; pointer-events: auto; border-top: calc(var(--f, 10px) * 0.34) solid var(--gfx-accent); touch-action: none; cursor: ns-resize; }
+.gfx-floor-edge[data-floor-line="far"] { border-top-color: var(--gfx-accent); }
+.gfx-floor-edge[data-floor-line="near"] { border-top-color: var(--gfx-pick); }
+.gfx-floor-edge .edge-mid { position: absolute; left: 50%; top: 0; translate: -50% -50%; padding: 0.28em 0.85em; white-space: nowrap; pointer-events: auto;
+  border: 2px solid var(--gfx-line); border-radius: 999px; background: var(--gfx-card); color: var(--gfx-text); box-shadow: 0 0.15em 0 var(--gfx-line);
+  font: 700 calc(var(--f, 10px) * 0.86)/1.2 "Jua", "Malgun Gothic", sans-serif; cursor: ns-resize; touch-action: none; }
+.gfx-floor-edge .edge-end { position: absolute; top: 0; width: calc(var(--f, 10px) * 2.4); aspect-ratio: 1; translate: -50% -50%; padding: 0; pointer-events: auto;
+  border: 2.5px solid var(--gfx-line); border-radius: 50%; background: var(--gfx-card); box-shadow: 0 0.15em 0 var(--gfx-line); cursor: ew-resize; touch-action: none; }
+.gfx-floor-edge .edge-end[data-side="left"] { left: 0; }
+.gfx-floor-edge .edge-end[data-side="right"] { left: 100%; }
+.gfx-floor-edge .edge-end::before { content: "↔"; color: var(--gfx-text); font-weight: 900; }
+.gfx-lobby[data-floor-edit] .who { pointer-events: none; outline-color: color-mix(in srgb, var(--gfx-line) 22%, transparent); opacity: 0.72; }
+.gfx-lobby:not([data-floor-edit]) .gfx-lobby-floor { display: none; }
 
 /* ── 7-day attendance ───────────────────────────────────────────────────────────────────────────── */
-${AT} .ev-panel { position: relative; overflow: visible !important; background-color: var(--gfx-card) !important; padding-right: 15% !important;
+${AT} .ev-panel[data-gfx-attendance] { position: relative; overflow: visible !important; background-color: var(--gfx-card) !important; padding-right: 15% !important;
   background-image: radial-gradient(color-mix(in srgb, var(--gfx-pick) 45%, transparent) 14%, transparent 15%) !important; background-size: 1.6em 1.6em !important;
   border: 3px solid var(--gfx-line) !important; border-radius: 26px !important; box-shadow: 0 0.4em 0 var(--gfx-line) !important; }
-${AT} .ev-title { display: inline-block; padding: 0.15em 1em; color: #fff !important; background: var(--gfx-accent); border: 3px solid var(--gfx-line);
+${AT} .ev-panel[data-gfx-attendance] .ev-title { display: inline-block; padding: 0.15em 1em; color: #fff !important; background: var(--gfx-accent); border: 3px solid var(--gfx-line);
   border-radius: 999px; box-shadow: 0 0.15em 0 var(--gfx-line); rotate: -2deg; text-shadow: 0 0.07em 0 color-mix(in srgb, var(--gfx-line) 60%, transparent); }
-${AT} .ev-day { position: relative; background: #fff !important; border: 2.5px solid var(--gfx-line) !important; border-radius: 16px !important;
+${AT} .ev-panel[data-gfx-attendance] .ev-day { position: relative; background: #fff !important; border: 2.5px solid var(--gfx-line) !important; border-radius: 16px !important;
   box-shadow: 0 0.22em 0 var(--gfx-line) !important; clip-path: none !important; }
-${AT} .ev-day .item-art { filter: drop-shadow(0 0.1em 0 color-mix(in srgb, var(--gfx-line) 35%, transparent)); }
-${AT} .ev-day .tick { display: none !important; }
-${AT} .ev-day.done { background: color-mix(in srgb, var(--gfx-ink) 80%, #ddd) !important; }
-${AT} .ev-day.done > *:not(.tick) { opacity: 0.55; }
-${AT} .ev-day.done::after, ${AT} .ev-day.gfx-stamped::after { content: "출석"; position: absolute; left: 50%; top: 42%; width: 62%; aspect-ratio: 1; translate: -50% -50%; rotate: -14deg;
+${AT} .ev-panel[data-gfx-attendance] .ev-day .item-art { filter: drop-shadow(0 0.1em 0 color-mix(in srgb, var(--gfx-line) 35%, transparent)); }
+${AT} .ev-panel[data-gfx-attendance] .ev-day .tick { display: none !important; }
+${AT} .ev-panel[data-gfx-attendance] .ev-day.done { background: color-mix(in srgb, var(--gfx-ink) 80%, #ddd) !important; }
+${AT} .ev-panel[data-gfx-attendance] .ev-day.done > *:not(.tick) { opacity: 0.55; }
+${AT} .ev-panel[data-gfx-attendance] .ev-day.done::after, ${AT} .ev-panel[data-gfx-attendance] .ev-day.gfx-stamped::after { content: "출석"; position: absolute; left: 50%; top: 42%; width: 62%; aspect-ratio: 1; translate: -50% -50%; rotate: -14deg;
   display: grid; place-items: center; font-family: "Jua", "Malgun Gothic", sans-serif; font-size: 1.15em; color: #E0484E;
   border: 3px solid #E0484E; border-radius: 50%; background: color-mix(in srgb, #fff 55%, transparent); box-shadow: inset 0 0 0 2px color-mix(in srgb, #E0484E 35%, transparent);
   animation: gfx-stamp 420ms cubic-bezier(.3,1.6,.5,1) both; }
 @keyframes gfx-stamp { from { scale: 1.8; opacity: 0; } to { scale: 1; opacity: 1; } }
-${AT} .ev-day.next { border-color: var(--gfx-accent) !important; box-shadow: 0 0.22em 0 var(--gfx-accent), 0 0 0 0.25em color-mix(in srgb, var(--gfx-accent) 25%, transparent) !important;
+${AT} .ev-panel[data-gfx-attendance] .ev-day.next { border-color: var(--gfx-accent) !important; box-shadow: 0 0.22em 0 var(--gfx-accent), 0 0 0 0.25em color-mix(in srgb, var(--gfx-accent) 25%, transparent) !important;
   animation: gfx-float 1.4s ease-in-out infinite; }
-${AT} .ev-day.next::before { content: "오늘!"; position: absolute; top: -0.9em; left: 50%; translate: -50% 0; z-index: 2; padding: 0.05em 0.6em;
+${AT} .ev-panel[data-gfx-attendance] .ev-day.next::before { content: "오늘!"; position: absolute; top: -0.9em; left: 50%; translate: -50% 0; z-index: 2; padding: 0.05em 0.6em;
   font-family: "Jua", "Malgun Gothic", sans-serif; font-size: 0.8em; color: #fff; background: var(--gfx-accent); border: 2px solid var(--gfx-line); border-radius: 999px; white-space: nowrap; }
-${AT} .ev-day.prize { background: linear-gradient(170deg, #FFF3C4, #FFD97A) !important; border-color: #B8860B !important; }
-${AT} .ev-n { display: inline-block; margin-top: 0.3em; padding: 0 0.6em; color: var(--gfx-line) !important; background: var(--gfx-pick);
+${AT} .ev-panel[data-gfx-attendance] .ev-day.prize { background: linear-gradient(170deg, #FFF3C4, #FFD97A) !important; border-color: #B8860B !important; }
+${AT} .ev-panel[data-gfx-attendance] .ev-n { display: inline-block; margin-top: 0.3em; padding: 0 0.6em; color: var(--gfx-line) !important; background: var(--gfx-pick);
   border: 2px solid var(--gfx-line); border-radius: 999px; font-family: "Jua", "Malgun Gothic", sans-serif; }
-${AT} .ev-claim { font-family: "Jua", "Malgun Gothic", sans-serif !important; font-size: 1.15em !important; padding: 0.35em 2em !important; color: #fff !important;
+${AT} .ev-panel[data-gfx-attendance] .ev-claim { font-family: "Jua", "Malgun Gothic", sans-serif !important; font-size: 1.15em !important; padding: 0.35em 2em !important; color: #fff !important;
   background: var(--gfx-accent) !important; border: 3px solid var(--gfx-line) !important; border-radius: 999px !important; box-shadow: 0 0.25em 0 var(--gfx-line) !important; }
-${AT} .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px !important; background: var(--gfx-card) !important; box-shadow: 0 0.15em 0 var(--gfx-line) !important; }
+${AT} .ev-panel[data-gfx-attendance] .ev-x { border: 2px solid var(--gfx-line) !important; border-radius: 999px !important; background: var(--gfx-card) !important; box-shadow: 0 0.15em 0 var(--gfx-line) !important; }
 .gfx-ev-mascot { position: absolute; right: -3%; bottom: 0; width: 19%; height: 104%; display: grid; place-items: end center; pointer-events: none; z-index: 3; }
 .gfx-ev-mascot .body { width: 100%; height: 100%; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-bob 2s ease-in-out infinite; }
 /* Baked sprites carry their outline already. */
@@ -699,10 +821,13 @@ img.baked { filter: none !important; }
   border: 2px solid var(--steel-dark); border-radius: 10px; padding: 0.45em 0.6em; }
 .gfx-field input { font: inherit; font-size: var(--t-xs, 12px); color: var(--text); background: var(--surface, #fff);
   border: 2px solid var(--steel-dark); border-radius: 10px; padding: 0.4em 0.6em; }
-.gfx-sd-edit { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 1em; margin-top: 1em; padding: 0.9em;
+.gfx-settings-nav { display: flex; gap: .5em; position: sticky; top: 0; z-index: 20; padding: .45em; margin: .2em 0 .8em; background: color-mix(in srgb, var(--surface, #fff) 94%, transparent); border: 2px solid var(--ink-3); border-radius: 14px; }
+.gfx-settings-nav button { flex: 1 1 0; }
+[data-gfx-settings-view="ui"] [data-gfx-section="sd"], [data-gfx-settings-view="sd"] [data-gfx-section="ui"] { display: none !important; }
+.gfx-sd-edit { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(18em, 0.75fr); gap: 1em; margin-top: 1em; padding: 0.9em;
   border: 2px dashed var(--coral); border-radius: 16px; background: var(--ink-2); }
 .gfx-sd-edit[hidden] { display: none; }
-.gfx-cheek-pad { position: relative; height: calc(var(--f, 10px) * 26); display: grid; place-items: center; cursor: crosshair; touch-action: none;
+.gfx-cheek-pad { position: relative; height: calc(var(--f, 10px) * 38); display: grid; place-items: center; cursor: crosshair; touch-action: none;
   border-radius: 12px; background: radial-gradient(70% 50% at 50% 80%, color-mix(in srgb, var(--coral) 15%, transparent), transparent 70%), var(--ink); }
 .gfx-cheek-pad img { position: absolute; inset: 0; margin: auto; max-width: 100%; max-height: 100%; object-fit: contain; -webkit-user-drag: none; user-select: none; }
 .gfx-cheek-pad .mark { position: absolute; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; pointer-events: none;
@@ -722,6 +847,31 @@ img.baked { filter: none !important; }
 .gfx-sd-card .st-chip { font-size: var(--t-tiny, 11px); padding: 0.2em 0.7em; }
 .gfx-sd-card[data-busy] .gfx-sd-thumb::after { content: "그리는 중…"; position: absolute; inset: 0.6em 0.6em auto; aspect-ratio: 1;
   display: grid; place-items: center; font-family: var(--display); color: var(--coral); background: color-mix(in srgb, var(--ink) 70%, transparent); border-radius: 10px; }
+
+/* Summon screen: cards, banner and pull controls use the same soft outlined language. */
+${T} [data-screen="banner"] .bcard { border: 3px solid var(--gfx-line) !important; border-radius: 20px !important; box-shadow: 0 .28em 0 var(--gfx-line) !important; overflow: hidden; }
+${T} [data-screen="banner"] .bcard[aria-pressed="true"] { outline: .35em solid color-mix(in srgb, var(--gfx-pick) 75%, transparent); translate: 0 -.15em; }
+${T} [data-screen="banner"] .show { border: 3px solid var(--gfx-line); border-radius: 26px; overflow: hidden; box-shadow: 0 .42em 0 var(--gfx-line); }
+${T} [data-screen="banner"] .chip, ${T} [data-screen="banner"] .pity, ${T} [data-screen="banner"] .float { border-radius: 999px !important; background: color-mix(in srgb, var(--gfx-card) 92%, transparent) !important; border: 2px solid var(--gfx-line) !important; }
+${T} [data-screen="banner"] .pull { border: 3px solid var(--gfx-line) !important; border-radius: 999px !important; background: linear-gradient(180deg, var(--gfx-pick), var(--gfx-accent)) !important; box-shadow: 0 .28em 0 var(--gfx-line) !important; }
+/* Re-entering a screen must not replay entrance animations on every game redraw. */
+${T} [data-in] { animation: none !important; opacity: 1 !important; }
+${T} .root:has([data-chat-close]) :is(.hm-pk, .hm-chat-panel) { backdrop-filter: none !important; }
+${T} .root:has([data-chat-close]) .hm-pk-veil { backdrop-filter: none !important; }
+${T} .root:has([data-chat-close]) [data-pop] { animation: none !important; }
+${T} .hm-screen:has([data-chat-close]) .gfx-lobby .body { animation-play-state: paused !important; }
+${T} [data-screen="events"], ${T} [data-screen="events"] > .body, ${T} [data-screen="events"] .ev-cols { min-height: 0; min-width: 0; overflow: hidden !important; }
+${T} [data-screen="events"] .ev-pane.pv { display: grid !important; grid-template-rows: auto auto minmax(0, 1fr) auto;
+  min-height: 0; min-width: 0; overflow: hidden !important; padding-bottom: .45em; }
+${T} [data-screen="events"] .pv-rail { grid-auto-columns: min(16cqh, calc(var(--f, 10px) * 10)) !important; }
+${T} [data-screen="events"] .pv-track { overflow-x: auto; overflow-y: hidden; min-height: 0; padding: .3em .3em .65em; }
+${T} [data-screen="events"] .pv-missions { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .15em .3em .45em; }
+${T} [data-screen="events"] .ev-foot { min-height: 0; padding-top: .3em; }
+@media (prefers-reduced-motion: reduce) {
+  .gfx-vn-cast .who, .gfx-vn-cast .body, .gfx-lobby .body, .gfx-team > span { animation: none !important; transition: none !important; }
+}
+${T} [data-screen="reveal"] .rv-card { border: 3px solid var(--gfx-line) !important; border-radius: 22px !important; box-shadow: 0 .35em 0 var(--gfx-line) !important; overflow: hidden; }
+${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-card) 94%, transparent) !important; border-top: 3px solid var(--gfx-line) !important; }
 `;
 
   let sheet = null, varSheet = null;
@@ -786,7 +936,7 @@ img.baked { filter: none !important; }
   /* ═════════════ The game ═════════════ */
   function host() { return document.querySelector(HOST_TAG); }
   function gameRoot() { return host()?.shadowRoot || null; }
-  const runId = () => { const h = host(); return h && h._run && h._run.runId ? String(h._run.runId) : ""; };
+  const runId = () => { const h = host(); return String(h?._run?.runId || h?._activeRunId || ""); };
   async function gf(path, body) {
     const res = await fetch("/api/gacha-forge" + path, {
       method: "POST", credentials: "same-origin", headers: JSON_HEADERS, body: JSON.stringify(body),
@@ -797,25 +947,34 @@ img.baked { filter: none !important; }
   }
 
   // Per world: the roster (to match portraits to names) and the SD sprites made for it.
-  const worlds = new Map(); // runId -> { cards, byPortrait: Map(path -> name), sd: {name: {url,...}}, state }
+  const worlds = new Map(); // runId -> { cards, byPortrait, outfits, sd: {name: {url, variants,...}}, state }
   const pathOf = (u) => { try { return new URL(u, location.origin).pathname; } catch { return String(u || ""); } };
   function world(id = runId()) {
     if (!id) return null;
     let w = worlds.get(id);
-    if (!w) { w = { id, cards: [], byPortrait: new Map(), sd: {}, state: "new", busy: new Set(), note: "" }; worlds.set(id, w); }
+    if (!w) { w = { id, cards: [], byPortrait: new Map(), outfits: new Map(), details: new Map(), detailsLoading: new Set(), sd: {}, state: "new", busy: new Set(), note: "" }; worlds.set(id, w); }
     return w;
   }
   async function loadWorld(force = false) {
     const w = world();
-    if (!w || (!force && w.state !== "new")) return w;
+    if (!w || w.state === "loading" || (!force && w.state === "ready")) return w;
     w.state = "loading";
     try {
       const [ro, stored] = await Promise.all([gf("/roster", { runId: w.id }), storeGet()]);
       w.cards = (ro.cards || []).filter((c) => c && c.kind === "character" && c.name);
       w.byPortrait = new Map(w.cards.filter((c) => c.portrait).map((c) => [pathOf(c.portrait), c.name]));
-      const sd = stored["sd:" + w.id], waiting = readPending()["sd:" + w.id];
+      const pending = readPending();
+      const sd = stored["sd:" + w.id], waiting = pending["sd:" + w.id];
       w.sd = { ...(sd && typeof sd === "object" ? sd : {}), ...(waiting && typeof waiting === "object" ? waiting : {}) };
-      if (stored.prefs) { prefs = normalizePrefs(stored.prefs); try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {} }
+      for (const [name, entry] of Object.entries(w.sd)) {
+        const portraits = Object.keys(entry?.variants || {});
+        w.outfits.set(name, new Set(portraits));
+        for (const portrait of portraits) w.byPortrait.set(pathOf(portrait), name);
+      }
+      if (stored.prefs || pending.prefs) {
+        prefs = normalizePrefs({ ...(stored.prefs || {}), ...(pending.prefs || {}) });
+        try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {}
+      }
       w.state = "ready";
       // SDs drawn but never recorded (the refused saves): find them in the gallery.
       if (w.cards.some((c) => !w.sd[c.name]?.url)) recoverSd(true);
@@ -826,8 +985,58 @@ img.baked { filter: none !important; }
     refresh();
     return w;
   }
-  const sdUrl = (name) => { const w = world(); const e = w && name && w.sd[name]; return e && e.url ? e.url : ""; };
-  const anySd = () => { const w = world(); return w ? Object.values(w.sd).map((e) => e && e.url).filter(Boolean) : []; };
+  const sdUrl = (name, portrait = "") => {
+    const w = world(), e = w && name && w.sd[name];
+    const activePortrait = portrait || w?.cards.find((c) => c.name === name)?.portrait || "";
+    const variant = activePortrait && e?.variants?.[pathOf(activePortrait)];
+    return typeof variant === "string" ? variant : variant?.url || e?.url || "";
+  };
+  const anySd = () => {
+    const w = world();
+    if (!w) return [];
+    return Object.values(w.sd).flatMap((e) => [e?.url, ...Object.values(e?.variants || {}).map((v) => typeof v === "string" ? v : v?.url)]).filter(Boolean);
+  };
+  async function loadUnitDetails(card, w = world()) {
+    if (!w || w.details.has(card.name) || w.detailsLoading.has(card.name)) return;
+    w.detailsLoading.add(card.name);
+    try {
+      const result = await gf("/unit", { runId: w.id, unitId: card.id });
+      const unit = result.unit || {};
+      w.details.set(card.name, unit);
+      const variants = w.outfits.get(card.name) || new Set();
+      for (const outfit of unit.outfits || []) {
+        if (!outfit.url) continue;
+        const path = pathOf(outfit.url);
+        variants.add(path); w.byPortrait.set(path, card.name);
+      }
+      w.outfits.set(card.name, variants);
+      if (!disposed && world() === w) paintSettings();
+    } catch (e) { w.note = "의상 정보를 읽지 못했습니다: " + e.message; }
+    finally { w.detailsLoading.delete(card.name); }
+  }
+  let syncBusy = false;
+  async function syncStored() {
+    if (disposed || syncBusy || document.hidden || !current) return;
+    syncBusy = true;
+    try {
+      const stored = await storeGet(), pending = readPending(), w = world();
+      let changed = false;
+      if (w && stored["sd:" + w.id]) {
+        const next = { ...stored["sd:" + w.id], ...(pending["sd:" + w.id] || {}) };
+        if (JSON.stringify(next) !== JSON.stringify(w.sd)) { w.sd = next; changed = true; }
+      }
+      const editing = gameRoot()?.activeElement?.matches("input, textarea, select");
+      if (stored.prefs && !editing && !lobbyEdit) {
+        const next = normalizePrefs({ ...stored.prefs, ...(pending.prefs || {}) });
+        if (JSON.stringify(next) !== JSON.stringify(prefs)) {
+          prefs = next; changed = true;
+          try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {}
+        }
+      }
+      if (w?.state === "error") await loadWorld();
+      if (changed) { refresh(); refreshSprites(); }
+    } finally { syncBusy = false; }
+  }
 
   /* ═════════════ Applying ═════════════ */
   function setFlag(h, name, value) {
@@ -873,21 +1082,26 @@ img.baked { filter: none !important; }
   /* ── Baked sprites ──
    * The white sticker outline used to be five stacked drop-shadow filters on every sprite, redrawn each frame
    * while the sprite moves — the cost behind a choppy lobby. Instead each SD is drawn once into a canvas with
-   * the outline and a soft under-shadow, scaled down to what the screens need, and kept as a blob: URL. */
+   * the outline and a soft under-shadow at the source resolution and kept as a blob: URL. */
   const bakedMap = new Map(); // raw url -> { url, px, py } | "pending" | "failed"
-  const BAKE_H = 760;
+  let bakeQueue = Promise.resolve();
   function bakeInfo(url) {
     const b = bakedMap.get(url);
     if (b === undefined) bake(url);
     return b && typeof b === "object" ? b : null;
   }
-  async function bake(url) {
+  function bake(url) {
     bakedMap.set(url, "pending");
+    const job = () => bakeNow(url);
+    bakeQueue = bakeQueue.then(job, job);
+    return bakeQueue;
+  }
+  async function bakeNow(url) {
     try {
       const im = new Image();
       im.src = url;
       await im.decode();
-      const sc = Math.min(1, BAKE_H / im.naturalHeight), W = Math.round(im.naturalWidth * sc), Hh = Math.round(im.naturalHeight * sc);
+      const sc = 1, W = im.naturalWidth, Hh = im.naturalHeight;
       const r = Math.max(2, Math.round(Hh * 0.004)), pad = r * 3;
       const cw = W + pad * 2, ch = Hh + pad * 2;
       const sil = document.createElement("canvas");
@@ -949,7 +1163,15 @@ img.baked { filter: none !important; }
     for (const img of gameRoot()?.querySelectorAll("img[data-raw]") || []) setSprite(img, img.dataset.raw, img.style.scale === "-1 1");
     for (const box of gameRoot()?.querySelectorAll(".gfx-lobby .who") || []) { const i = box.querySelector("img"); if (i) box.style.setProperty("--hf", i.style.getPropertyValue("--hf") || "1"); }
   }
-  function nameOfUrl(url) { const w = world(); if (!w || !url) return ""; for (const [n, e] of Object.entries(w.sd)) if (e && e.url === url) return n; return ""; }
+  function nameOfUrl(url) {
+    const w = world();
+    if (!w || !url) return "";
+    for (const [n, e] of Object.entries(w.sd)) {
+      if (e && e.url === url) return n;
+      if (Object.values(e?.variants || {}).some((v) => (typeof v === "string" ? v : v?.url) === url)) return n;
+    }
+    return "";
+  }
   function setSprite(img, url, flip) {
     const b = url ? bakeInfo(url) : null;
     const src = b ? b.url : url;
@@ -958,7 +1180,7 @@ img.baked { filter: none !important; }
     for (const k of ["mx", "ox", "my", "oy", "hf"]) { if (b) img.dataset[k] = String(b[k]); else delete img.dataset[k]; }
     // The character's own height: rules size sprites as a share of their box times --hf.
     const tall = Number(sdEntry(nameOfUrl(url)).tall) || 1;
-    const hf = String(+((b ? b.hf : 1) * tall).toFixed(3));
+    const hf = String(+(Math.min(1.15, Math.max(0.6, tall))).toFixed(3));
     if (img.style.getPropertyValue("--hf") !== hf) img.style.setProperty("--hf", hf);
     if (b && img.parentElement?.closest) { const box = img.closest(".gfx-lobby .who, .gfx-vn-cast .who"); if (box && box.style.getPropertyValue("--hf") !== hf) box.style.setProperty("--hf", hf); }
     if (img.dataset.raw !== url) img.dataset.raw = url;
@@ -972,7 +1194,14 @@ img.baked { filter: none !important; }
   /* ── Story and battle sprites ── */
   function nameFromImg(img) {
     const w = world();
-    return w && img && img.getAttribute("src") ? w.byPortrait.get(pathOf(img.getAttribute("src"))) || "" : "";
+    if (!w || !img || !img.getAttribute("src")) return "";
+    const path = pathOf(img.getAttribute("src"));
+    const known = w.byPortrait.get(path);
+    if (known) return known;
+    const cast = host()?._beatCast;
+    const actor = Array.isArray(cast) && cast.find((c) => c?.art && pathOf(c.art) === path);
+    if (actor?.name) { w.byPortrait.set(path, actor.name); return actor.name; }
+    return "";
   }
   function placeSd(container, url, flip = false) {
     let img = container.querySelector(":scope > img.gfx-sd");
@@ -986,27 +1215,21 @@ img.baked { filter: none !important; }
     const whoEl = root.querySelector(".vn-who");
     const who = whoEl && !whoEl.hasAttribute("data-narration") ? whoEl.textContent.replace(/\s*\(.*?\)\s*$/, "").trim() : "";
     const plates = Array.from(root.querySelectorAll(".vn-plate"));
-    // Matched by portrait first; the speaker's name only when a single portrait is up (an outfit's art is not
-    // the roster portrait), so a second figure on screen never wears the speaker's sprite.
-    const openCount = plates.filter((p) => p.getAttribute("data-open") === "true").length;
-    // A portrait whose character has an SD steps aside: that character stands in the cast line-up instead.
+    const snapshot = storySnapshot(root, whoEl && whoEl.hasAttribute("data-narration") ? "" : who);
+    const replaced = new Set(snapshot.slots.map((s) => s.plate).filter(Boolean));
+    // Only portraits represented by the reconciled current cast step aside. CG and closed slots stay untouched.
     for (const plate of plates) {
-      let has = false;
-      if (on && prefs.opts.storySd && plate.getAttribute("data-open") === "true") {
-        const front = plate.getAttribute("data-front") || "a";
-        const img = plate.querySelector('.vn-art[data-art="' + front + '"] > img');
-        has = !!sdUrl(nameFromImg(img) || (openCount === 1 && who ? who : ""));
-      }
+      const has = on && prefs.opts.storySd && snapshot.mode === "dialogue" && replaced.has(plate);
       plate.querySelector(":scope > img.gfx-sd")?.remove();
       if (has !== plate.hasAttribute("data-gfx-sd")) { if (has) plate.setAttribute("data-gfx-sd", ""); else plate.removeAttribute("data-gfx-sd"); }
     }
-    paintVnCast(root, on && prefs.opts.storySd, whoEl && whoEl.hasAttribute("data-narration") ? "" : who);
+    paintVnCast(root, on && prefs.opts.storySd, whoEl && whoEl.hasAttribute("data-narration") ? "" : who, snapshot);
     const field = on && prefs.opts.field;
     for (const card of root.querySelectorAll(".cbt")) {
       let url = "", name = "";
       if (on && (prefs.opts.battleSd || field)) {
         name = nameFromImg(card.querySelector(".ava-photo")) || (card.querySelector(".nm")?.textContent || "").trim();
-        url = sdUrl(name);
+        url = sdUrl(name, card.querySelector(".ava-photo")?.getAttribute("src") || "");
       }
       // Allies look toward the foes on the right, foes toward the left.
       if (url || card.hasAttribute("data-gfx-sd")) placeSd(card, url, url && needFlip(name, card.classList.contains("enemy") ? "left" : "right"));
@@ -1062,31 +1285,137 @@ img.baked { filter: none !important; }
   }
 
   /* ── Story cast line-up (Trickcal manner) ──
-   * Everyone with an SD who has spoken in this scene stays on stage, large, standing behind the dialogue box;
-   * the one speaking is bright and in front, the rest dim. A new scene (its caption changes) clears the stage. */
-  const vnCast = { scene: "", names: [] };
-  const CAST_X = { 1: [50], 2: [31, 69], 3: [19, 50, 81], 4: [13, 37, 63, 87] };
-  function paintVnCast(root, enabled, speaker) {
+   * The current open portrait slots are authoritative. Closed slots leave immediately, unknown full-frame art
+   * is treated as CG, and characters without an SD use a contained portrait card in the same stage. */
+  const MAX_STORY_CAST = 3;
+  const vnCast = { renderedKey: "" };
+  const CAST_X = { 1: [50], 2: [31, 69], 3: [18, 50, 82] };
+  function activePlateImage(plate) {
+    const front = plate.getAttribute("data-front") || "a";
+    return plate.querySelector('.vn-art[data-art="' + front + '"] > img') || plate.querySelector(".vn-art img, img");
+  }
+  function visibleChoice(vn) {
+    return Array.from(vn.querySelectorAll(".gch-menu, .vn-choices, .vn-choice, [data-choice], .choices"))
+      .some((n) => !n.hidden && !n.closest("[hidden]") && n.getClientRects().length > 0
+        && getComputedStyle(n).display !== "none" && (n.matches("button, [data-choice]") || n.querySelector("button, [role=button], .vn-choice")));
+  }
+  // Rebuild presence from the current scene, not from the entire world's cast.
+  function storyCastAt(segments, at, cast) {
+    const normalize = (s) => String(s || "").normalize("NFC").trim().toLocaleLowerCase();
+    const find = (s) => {
+      const key = normalize(s);
+      if (!key) return null;
+      const exact = cast.find((c) => normalize(c.name) === key);
+      if (exact) return exact;
+      if (["you", "player", "protagonist", "나", "주인공"].includes(key)) return cast.find((c) => c.prota) || null;
+      const partial = cast.filter((c) => normalize(c.name).split(/\s+/).includes(key));
+      return partial.length === 1 ? partial[0] : null;
+    };
+    const present = new Map();
+    let place = "";
+    for (let i = 0; i <= Math.min(at, segments.length - 1); i++) {
+      const segment = segments[i] || {};
+      if (segment.place && segment.place !== place) { present.clear(); place = segment.place; }
+      const text = String(segment.text || "");
+      if (!segment.speaker) for (const actor of cast) {
+        const start = text.indexOf(actor.name);
+        if (start < 0) continue;
+        const action = text.slice(start + actor.name.length, start + actor.name.length + 65).split(/[.!?。\n]/)[0];
+        if (/(?:퇴장했|퇴장한|나갔|떠났|자리를 떠|사라졌|밖으로 나|물러났|walked away|left the room|exited|departed)/i.test(action)) present.delete(actor.name);
+        else if (/(?:들어왔|들어섰|다가왔|나타났|합류했|entered|arrived|joined)/i.test(action)) present.set(actor.name, actor);
+      }
+      const actor = find(segment.speaker);
+      if (actor) { present.delete(actor.name); present.set(actor.name, actor); }
+    }
+    return Array.from(present.values()).slice(-MAX_STORY_CAST);
+  }
+  function storySnapshot(root, speaker) {
     const vn = root.querySelector(".vn");
-    let layer = vn && vn.querySelector(":scope > .gfx-vn-cast");
-    if (!vn || !enabled) { layer?.remove(); if (!vn) vnCast.names = []; return; }
-    const scene = (root.querySelector(".vn-caption")?.textContent || "").trim();
-    if (scene !== vnCast.scene) { vnCast.scene = scene; vnCast.names = []; }
-    if (speaker && sdUrl(speaker) && !vnCast.names.includes(speaker)) {
-      vnCast.names.push(speaker);
-      if (vnCast.names.length > 4) vnCast.names.shift();
+    if (!vn) return { mode: "none", sceneKey: "", slots: [] };
+    const choiceActive = visibleChoice(vn);
+    const open = Array.from(vn.querySelectorAll('.vn-plate[data-open="true"]'));
+    const vr = vn.getBoundingClientRect();
+    const largeUnknownArt = open.some((plate) => {
+      const image = activePlateImage(plate), pr = plate.getBoundingClientRect();
+      return image && !nameFromImg(image) && vr.width > 0 && vr.height > 0 && pr.width > vr.width * 0.55 && pr.height > vr.height * 0.55;
+    });
+    const cgActive = vn.hasAttribute("data-cg") || largeUnknownArt || !!vn.querySelector('.vn-cg:not([hidden]), .vn-illustration:not([hidden]), .scene-cg:not([hidden]), [data-illustration]:not([hidden]), .vn-art-full:not([hidden])');
+    const mode = choiceActive ? "choice" : cgActive ? "cg" : "dialogue";
+    const slots = [];
+    const h = host(), cast = Array.isArray(h?._beatCast) ? h._beatCast : [];
+    const segments = Array.isArray(h?._beat) ? h._beat : [];
+    if (mode === "dialogue" && segments.length && cast.length) {
+      const count = (vn.querySelector(".vn-count")?.textContent || "").match(/\d+/);
+      const at = Math.max(0, Number(count?.[0] || 1) - 1);
+      const actors = storyCastAt(segments, at, cast);
+      // A reply branch may use a different speaker than its parent beat.
+      const speaking = cast.find((c) => c.name === speaker);
+      if (speaking && !actors.some((c) => c.name === speaking.name)) actors.push(speaking);
+      for (const actor of actors.slice(-MAX_STORY_CAST)) {
+        const portrait = actor.art || world()?.cards.find((c) => c.name === actor.name)?.portrait || "";
+        if (portrait) world()?.byPortrait.set(pathOf(portrait), actor.name);
+        slots.push({ id: actor.name, name: actor.name, portrait, plate: open.find((p) => nameFromImg(activePlateImage(p)) === actor.name) || null });
+      }
+    } else if (mode === "dialogue") {
+      for (const [i, plate] of open.entries()) {
+        const image = activePlateImage(plate);
+        const portrait = image?.getAttribute("src") || "";
+        const exact = nameFromImg(image);
+        const name = exact || (open.length === 1 ? speaker : "");
+        if (!name || slots.some((s) => s.name === name)) continue;
+        const w = world(), base = w?.cards.find((c) => c.name === name)?.portrait || "";
+        if (w && portrait && pathOf(portrait) !== pathOf(base)) {
+          if (!w.outfits.has(name)) w.outfits.set(name, new Set());
+          w.outfits.get(name).add(pathOf(portrait));
+        }
+        slots.push({ id: plate.getAttribute("data-side") || String(i), name, portrait, plate });
+      }
+    }
+    const bgImage = root.querySelector(".vn-scene .vn-bg[data-on] img, .vn-scene img, .vn-bg img, .vn-back img, [data-background] img");
+    const bgBox = root.querySelector(".vn-scene .vn-bg[data-on], .vn-scene .vn-bg, .vn-bg, .vn-back, [data-background]");
+    const bg = bgImage?.getAttribute("src") || bgBox?.style.backgroundImage || (bgBox ? getComputedStyle(bgBox).backgroundImage : "") || "";
+    const caption = (root.querySelector(".vn-caption")?.textContent || "").trim();
+    const place = segments[Number(h?._beatAt) || 0]?.place || "";
+    return { mode, sceneKey: caption + "|" + place + "|" + bg, slots: slots.slice(-MAX_STORY_CAST) };
+  }
+  function clampCastPosition(layer, node) {
+    if (!layer.clientWidth || !node.offsetWidth) return;
+    const wanted = Number(node.dataset.x) || 50;
+    const scale = Number(getComputedStyle(node).getPropertyValue("--hf")) || 1;
+    const half = Math.min(45, (node.offsetWidth * scale / layer.clientWidth) * 50 + 1);
+    node.style.left = clamp(wanted, half, 100 - half).toFixed(2) + "%";
+  }
+  function paintVnCast(root, enabled, speaker, snapshot = storySnapshot(root, speaker)) {
+    const vn = root.querySelector(".vn");
+    const stage = vn?.querySelector(":scope > .vn-stage") || vn;
+    let layer = stage && stage.querySelector(":scope > .gfx-vn-cast");
+    if (!vn || !enabled || snapshot.mode !== "dialogue" || !snapshot.slots.length) {
+      layer?.remove();
+      vnCast.renderedKey = "";
+      return;
     }
     if (!layer) {
       layer = el("div", "gfx-vn-cast");
-      vn.prepend(layer);
+      stage.prepend(layer);
     }
-    const names = vnCast.names;
-    const xs = CAST_X[names.length] || [];
-    for (const n of layer.querySelectorAll(":scope > .who")) if (!names.includes(n.getAttribute("data-name"))) n.remove();
-    names.forEach((name, i) => {
-      let n = Array.from(layer.children).find((x) => x.getAttribute("data-name") === name);
+    const slots = snapshot.slots;
+    if (layer.getAttribute("data-scene") !== snapshot.sceneKey) {
+      layer.replaceChildren();
+      layer.setAttribute("data-scene", snapshot.sceneKey);
+    }
+    const key = snapshot.sceneKey + "|" + snapshot.mode + "|" + speaker + "|" + slots.map((s) => [s.id, s.name, s.portrait, sdUrl(s.name, s.portrait), sdEntry(s.name).tall || 1].join("~")).join(";");
+    if (layer.getAttribute("data-key") === key) return;
+    layer.setAttribute("data-key", key);
+    vnCast.renderedKey = key;
+    const xs = CAST_X[slots.length] || [];
+    const ids = new Set(slots.map((s) => s.id));
+    for (const n of layer.querySelectorAll(":scope > .who")) if (!ids.has(n.getAttribute("data-slot"))) n.remove();
+    slots.forEach((slot, i) => {
+      const name = slot.name;
+      let n = Array.from(layer.children).find((x) => x.getAttribute("data-slot") === slot.id);
       if (!n) {
         n = el("div", "who");
+        n.setAttribute("data-slot", slot.id);
         n.setAttribute("data-name", name);
         const body = el("div", "body"), img = el("img");
         img.alt = name;
@@ -1096,11 +1425,32 @@ img.baked { filter: none !important; }
         n.append(body);
         layer.append(n);
       }
+      n.setAttribute("data-name", name);
+      n.dataset.x = String(xs[i]);
       n.style.left = xs[i] + "%";
       const im = n.querySelector("img");
-      setSprite(im, sdUrl(name), needFlip(name, xs[i] < 50 ? "right" : xs[i] > 50 ? "left" : ""));
-      if (im.naturalWidth && im.naturalHeight) { const ar = im.naturalWidth + " / " + im.naturalHeight; if (n.style.aspectRatio !== ar) n.style.aspectRatio = ar; }
-      else im.addEventListener("load", () => { n.style.aspectRatio = im.naturalWidth + " / " + im.naturalHeight; }, { once: true });
+      const sd = sdUrl(name, slot.portrait);
+      let placeholder = n.querySelector(".gfx-vn-placeholder");
+      if (!sd && !slot.portrait) {
+        im.hidden = true;
+        if (!placeholder) {
+          placeholder = el("div", "gfx-vn-placeholder");
+          placeholder.append(heroNode(""), el("span", "", name));
+          n.querySelector(".body").append(placeholder);
+        }
+      } else { im.hidden = false; placeholder?.remove(); }
+      im.classList.toggle("portrait", !sd);
+      if (sd) setSprite(im, sd, needFlip(name, xs[i] < 50 ? "right" : xs[i] > 50 ? "left" : ""));
+      else {
+        if (im.getAttribute("src") !== slot.portrait) im.src = slot.portrait;
+        im.style.scale = "";
+        n.style.setProperty("--hf", "1");
+      }
+      const fit = () => {
+        if (im.naturalWidth && im.naturalHeight) n.style.aspectRatio = String(Math.min(1.1, im.naturalWidth / im.naturalHeight));
+        requestAnimationFrame(() => clampCastPosition(layer, n));
+      };
+      if (im.complete) fit(); else im.addEventListener("load", fit, { once: true });
       const speaking = name === speaker;
       if (speaking !== n.hasAttribute("data-speaking")) {
         if (speaking) { n.setAttribute("data-speaking", ""); n.removeAttribute("data-hop"); void n.offsetWidth; n.setAttribute("data-hop", ""); }
@@ -1140,7 +1490,8 @@ img.baked { filter: none !important; }
   /* ── Team: formation slots and the briefing before a battle ── */
   function paintTeam(root, enabled) {
     for (const slot of root.querySelectorAll(".slot")) {
-      const url = enabled && slot.classList.contains("filled") ? sdUrl(nameFromImg(slot.querySelector(".slot-art img"))) : "";
+      const art = slot.querySelector(".slot-art img"), name = nameFromImg(art);
+      const url = enabled && slot.classList.contains("filled") ? sdUrl(name, art?.getAttribute("src") || "") : "";
       if (url || slot.hasAttribute("data-gfx-sd")) placeSd(slot, url);
     }
     // The result screen after a win: the team that fought, jumping for joy.
@@ -1148,14 +1499,14 @@ img.baked { filter: none !important; }
       const screen = verdict.parentElement;
       let row = screen.querySelector(":scope > .gfx-team");
       const won = !verdict.closest(".root.lose");
-      const urls = enabled && won ? Array.from(screen.querySelectorAll(".rs-b-row .nm")).map((n) => sdUrl(n.textContent.trim())).filter(Boolean) : [];
-      const key = urls.join("|");
+      const members = enabled && won ? Array.from(screen.querySelectorAll(".rs-b-row .nm")).map((n) => ({ name: n.textContent.trim(), url: sdUrl(n.textContent.trim()) })).filter((x) => x.url) : [];
+      const key = members.map((x) => x.url).join("|");
       if (row && row.getAttribute("data-key") === key) continue;
       row?.remove();
-      if (!urls.length) continue;
+      if (!members.length) continue;
       row = el("div", "gfx-team win");
       row.setAttribute("data-key", key);
-      urls.forEach((u, i) => { const sp = el("span"), im = el("img"); setSprite(im, u, false); im.alt = ""; sp.style.animationDelay = (-i * 0.18).toFixed(2) + "s"; sp.append(im); row.append(sp); });
+      members.forEach((member, i) => { const sp = el("span"), im = el("img"); setSprite(im, member.url, false); im.style.setProperty("--hf", String(Number(sdEntry(member.name).tall) || 1)); im.alt = ""; sp.style.animationDelay = (-i * 0.18).toFixed(2) + "s"; sp.append(im); row.append(sp); });
       verdict.after(row);
     }
     for (const brief of root.querySelectorAll(".briefing")) {
@@ -1164,7 +1515,8 @@ img.baked { filter: none !important; }
       const team = Array.from(root.querySelectorAll(".side.allies .cbt")).map((c) => {
         const img = c.querySelector(".ava-photo");
         const name = nameFromImg(img) || (c.querySelector(".nm")?.textContent || "").trim();
-        return { url: sdUrl(name), portrait: img?.getAttribute("src") || "" };
+        const portrait = img?.getAttribute("src") || "";
+        return { name, url: sdUrl(name, portrait), portrait };
       }).filter((t) => t.url || t.portrait);
       const key = team.map((t) => t.url || t.portrait).join("|");
       if (row && row.getAttribute("data-key") === key) continue;
@@ -1174,7 +1526,8 @@ img.baked { filter: none !important; }
       row.setAttribute("data-key", key);
       for (const t of team) {
         const s = el("span"), i = el("img", t.url ? "" : "portrait");
-        if (t.url) setSprite(i, t.url, false); else i.src = t.portrait;
+        if (t.url) { setSprite(i, t.url, false); i.style.setProperty("--hf", String(Number(sdEntry(t.name).tall) || 1)); }
+        else i.src = t.portrait;
         i.alt = "";
         s.append(i);
         row.append(s);
@@ -1191,7 +1544,7 @@ img.baked { filter: none !important; }
   const linesFor = (name) => { const l = sdEntry(name).lines; return Array.isArray(l) && l.filter(Boolean).length ? l.filter(Boolean) : LOBBY_LINES; };
   const pinchFor = (name) => sdEntry(name).pinch || pick(PINCH_LINES);
   const cheeksOf = (name) => { const c = sdEntry(name).cheeks; return Array.isArray(c) && c.length ? c : null; };
-  const cheekR = (name) => { const r = Number(sdEntry(name).cheekR); return r > 0 ? r : 0.06; };
+  const cheekR = (name) => { const r = Number(sdEntry(name).cheekR); return r > 0 ? r : 0.04; };
   async function saveSdEntry(name, patch) {
     const w = world();
     if (!w) return;
@@ -1214,6 +1567,8 @@ img.baked { filter: none !important; }
     for (let n = node; n && n !== stop; n = n.parentElement) { const t = getComputedStyle(n).transform; if (t && t.startsWith("matrix(-")) m = !m; }
     return m;
   }
+  const PINCH_RETURN_MS = 420, PINCH_FOLLOW = 0.24;
+  const pinchCleanups = new Set();
   function startPinch(img, e, cheeks, rFrac, stop, done, allowFree = true) {
     if (!img || !img.complete || !img.naturalWidth) return false;
     // No cheek set for this SD: any press in the top part (the head of a chibi) pinches right where it lands.
@@ -1223,7 +1578,7 @@ img.baked { filter: none !important; }
       const fy = (e.clientY - b0.top) / b0.height;
       if (!b0.height || fy < 0.08 || fy > 0.55) return false;
       cheeks = [{ x: 0.5, y: fy, free: true }];
-      rFrac = Math.max(rFrac, 0.06);
+      rFrac = Math.max(rFrac, 0.04);
       img.dataset.freePinch = "1";
     } else delete img.dataset.freePinch;
     const mx = Number(img.dataset.mx), my = Number(img.dataset.my), ox = Number(img.dataset.ox) || 0, oy = Number(img.dataset.oy) || 0;
@@ -1238,7 +1593,8 @@ img.baked { filter: none !important; }
     if (!best || bestD > rPx * 1.6) return false;
     if (best.free) best = { x: lx / box.width, y: ly / box.height };
     const w = img.offsetWidth, h = img.offsetHeight, sc = box.width / w;
-    const dpr = Math.min(2, window.devicePixelRatio || 1), cw = Math.max(1, Math.round(w * dpr)), ch = Math.max(1, Math.round(h * dpr));
+    // Preserve the exact source resolution while pulling, including enlarged lobby SDs.
+    const cw = img.naturalWidth, ch = img.naturalHeight, dpr = cw / w;
     const canvas = el("canvas", "gfx-pinch");
     canvas.width = cw; canvas.height = ch;
     canvas.style.cssText = "position:absolute;left:" + img.offsetLeft + "px;top:" + img.offsetTop + "px;width:" + w + "px;height:" + h + "px;pointer-events:none;filter:" + getComputedStyle(img).filter;
@@ -1246,15 +1602,20 @@ img.baked { filter: none !important; }
     let src;
     try { ctx.drawImage(img, 0, 0, cw, ch); src = ctx.getImageData(0, 0, cw, ch); } catch { return false; }
     const out = ctx.createImageData(cw, ch);
+    out.data.set(src.data);
     // The skin moves with the finger: a point q of the original art goes to q + d·g(|q − c|), g a gaussian
     // round the cheek. Each output pixel p finds the q that lands on it (q = p − d·g(|q − c|), a few fixed-point
     // steps; it converges while |d| stays under ~1.6σ, so the pull is soft-limited there) and is read with
     // bilinear filtering. Far from the cheek g is ~0 and the face stays exactly as drawn.
     // The gaussian is an ellipse turned along the pull: long that way (the stretch), narrow across it, so an
     // eye or mouth beside the cheek barely moves.
-    const cx = best.x * cw, cy = best.y * ch, R = rFrac * cw, sig = R * 1.3, sigQ = R * 0.85, maxLen = sig * 1.55;
+    const cx = best.x * cw, cy = best.y * ch, R = rFrac * cw, sig = R * 1.65, sigQ = R * 1.15, maxLen = sig * 1.2;
     const invP = 1 / (2 * sig * sig), invQ = 1 / (2 * sigQ * sigQ);
     const s = src.data, o = out.data;
+    const reach = Math.ceil(sig * 3 + maxLen + R * 1.4);
+    const dirtyX = Math.max(0, Math.floor(cx - reach)), dirtyY = Math.max(0, Math.floor(cy - reach));
+    const dirtyW = Math.min(cw - dirtyX, Math.ceil(cx + reach) - dirtyX);
+    const dirtyH = Math.min(ch - dirtyY, Math.ceil(cy + reach) - dirtyY);
     function sample(qx, qy, oi) {
       const x0 = Math.floor(qx), y0 = Math.floor(qy), fx = qx - x0, fy = qy - y0;
       const xa = Math.min(cw - 1, Math.max(0, x0)), xb = Math.min(cw - 1, Math.max(0, x0 + 1));
@@ -1272,7 +1633,10 @@ img.baked { filter: none !important; }
       const raw = Math.hypot(dx, dy);
       if (raw > 0) { const len = maxLen * Math.tanh(raw / maxLen); dx *= len / raw; dy *= len / raw; }
       const len = Math.hypot(dx, dy);
-      o.set(s);
+      for (let y = dirtyY; y < dirtyY + dirtyH; y++) {
+        const start = (y * cw + dirtyX) * 4;
+        o.set(s.subarray(start, start + dirtyW * 4), start);
+      }
       if (len > 0.3) {
         const ux = dx / len, uy = dy / len;
         const ext = sig * 3;
@@ -1290,7 +1654,7 @@ img.baked { filter: none !important; }
           }
         }
       }
-      ctx.putImageData(out, 0, 0);
+      ctx.putImageData(out, 0, 0, dirtyX, dirtyY, dirtyW, dirtyH);
       // A stretched cheek flushes pink — painted only where the art is (source-atop).
       if (len > 0.3) {
         const t = Math.min(1, len / maxLen), gx = cx + dx * 0.7, gy = cy + dy * 0.7;
@@ -1304,34 +1668,63 @@ img.baked { filter: none !important; }
         ctx.restore();
       }
     }
-    render(0, 0);
+    ctx.putImageData(src, 0, 0);
     img.parentElement.append(canvas);
     img.style.visibility = "hidden";
-    let dx = 0, dy = 0, frame = 0;
+    let targetDx = 0, targetDy = 0, currentDx = 0, currentDy = 0, frame = 0;
+    let released = false, releaseX = 0, releaseY = 0, releaseAt = 0, pulled = false;
+    const cleanup = () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      window.removeEventListener("blur", up);
+      canvas.remove(); img.style.visibility = "";
+      pinchCleanups.delete(cleanup);
+    };
+    const animate = (now) => {
+      frame = 0;
+      if (disposed || !canvas.isConnected) { cleanup(); return; }
+      if (released) {
+        const t = now - releaseAt, k = Math.exp(-t / 105) * Math.cos(t / 72);
+        currentDx = releaseX * k; currentDy = releaseY * k;
+        render(currentDx, currentDy);
+        if (t < PINCH_RETURN_MS) frame = requestAnimationFrame(animate);
+        else { cleanup(); done && done(pulled); }
+        return;
+      }
+      currentDx += (targetDx - currentDx) * PINCH_FOLLOW;
+      currentDy += (targetDy - currentDy) * PINCH_FOLLOW;
+      render(currentDx, currentDy);
+      frame = requestAnimationFrame(animate);
+    };
     const move = (ev) => {
       ev.preventDefault();
-      dx = ((ev.clientX - e.clientX) / sc) * dpr * (mirrored ? -1 : 1);
-      dy = ((ev.clientY - e.clientY) / sc) * dpr;
-      if (!frame) frame = requestAnimationFrame(() => { frame = 0; render(dx, dy); });
+      targetDx = ((ev.clientX - e.clientX) / sc) * dpr * (mirrored ? -1 : 1);
+      targetDy = ((ev.clientY - e.clientY) / sc) * dpr;
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
-      if (frame) cancelAnimationFrame(frame);
-      const d0x = dx, d0y = dy, pulled = Math.hypot(dx, dy) > R * 0.35, t0 = performance.now();
-      // Snaps back past the rest point and wobbles out, like dough let go.
-      const spring = (now) => {
-        const t = now - t0, k = Math.exp(-t / 150) * Math.cos(t / 62);
-        render(d0x * k, d0y * k);
-        if (t < 760) requestAnimationFrame(spring);
-        else { canvas.remove(); img.style.visibility = ""; done && done(pulled); }
-      };
-      requestAnimationFrame(spring);
+      window.removeEventListener("blur", up);
+      pulled = Math.hypot(targetDx, targetDy) > R * 0.35;
+      if (!pulled) {
+        if (frame) cancelAnimationFrame(frame);
+        cleanup();
+        done && done(false);
+        return;
+      }
+      // Release from the visible, lagged position: a short soft overshoot, not a rubber-band snap.
+      released = true; releaseX = currentDx; releaseY = currentDy; releaseAt = performance.now();
+      if (!frame) frame = requestAnimationFrame(animate);
     };
     window.addEventListener("pointermove", move, { passive: false });
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
+    window.addEventListener("blur", up, { once: true });
+    pinchCleanups.add(cleanup);
+    frame = requestAnimationFrame(animate);
     e.preventDefault();
     return true;
   }
@@ -1395,7 +1788,34 @@ img.baked { filter: none !important; }
   }
 
   /* ── Home lobby ── */
-  let lobbyEdit = false, lobbyPicked = "";
+  let lobbyEdit = false, floorEdit = false, lobbyPicked = "";
+  const DEFAULT_FLOOR = { vpX: 50, vpY: 42, backL: 22, backR: 78, backY: 66, frontL: 3, frontR: 97, frontY: 94 };
+  function lobbyScene() {
+    const w = world(), raw = w && prefs.homeScene[w.id];
+    return raw || DEFAULT_FLOOR;
+  }
+  function setLobbyScene(patch) {
+    const w = world();
+    if (!w) return;
+    prefs.homeScene[w.id] = { ...DEFAULT_FLOOR, ...(prefs.homeScene[w.id] || {}), ...patch };
+  }
+  function floorBoundsAt(y, scene = lobbyScene()) {
+    const t = Math.min(1, Math.max(0, (y - scene.backY) / Math.max(1, scene.frontY - scene.backY)));
+    return {
+      left: scene.backL + (scene.frontL - scene.backL) * t,
+      right: scene.backR + (scene.frontR - scene.backR) * t,
+    };
+  }
+  function clampToFloor(x, y, scene = lobbyScene()) {
+    const cy = Math.min(scene.frontY, Math.max(scene.backY, y));
+    const edge = floorBoundsAt(cy, scene);
+    return { x: Math.min(edge.right, Math.max(edge.left, x)), y: cy };
+  }
+  function autoFloorPoint(i, n, back) {
+    const scene = lobbyScene(), y = back ? scene.backY + (scene.frontY - scene.backY) * 0.35 : scene.frontY - 4;
+    const edge = floorBoundsAt(y, scene), t = n === 1 ? 0.5 : 0.08 + (i / (n - 1)) * 0.84;
+    return { x: edge.left + (edge.right - edge.left) * t, y };
+  }
   function homeCast() {
     const w = world();
     if (!w) return [];
@@ -1405,8 +1825,9 @@ img.baked { filter: none !important; }
       const e = mine[c.name] || {};
       // Two rows: the front row low and large, the back row higher up between them.
       const n = list.length, back = n > 2 && i % 2 === 1;
-      const auto = n === 1 ? 50 : 10 + (i * 80) / (n - 1);
-      return { name: c.name, url: sdUrl(c.name), x: Number.isFinite(e.x) ? e.x : auto, y: Number.isFinite(e.y) ? Math.min(106, Math.max(68, e.y)) : back ? 80 : 100, s: 1 };
+      const auto = autoFloorPoint(i, n, back);
+      const placed = clampToFloor(Number.isFinite(e.x) ? e.x : auto.x, Number.isFinite(e.y) ? e.y : auto.y);
+      return { name: c.name, url: sdUrl(c.name), x: placed.x, y: placed.y, s: Number.isFinite(e.s) ? e.s : 1 };
     });
   }
   function setHome(name, patch) {
@@ -1433,16 +1854,27 @@ img.baked { filter: none !important; }
       let lobby = screen.querySelector(":scope > .gfx-lobby");
       if (!enabled) { lobby?.remove(); continue; }
       const cast = homeCast();
-      const key = (lobbyEdit ? "E:" + lobbyPicked + ":" : "") + cast.map((c) => [c.name, c.url, c.x.toFixed(1), c.y.toFixed(1), faceOf(c.name)].join(",")).join("|");
-      if (lobby && lobby.getAttribute("data-key") === key) continue;
-      lobby?.remove();
-      lobby = el("div", "gfx-lobby");
+      const floorKey = Object.values(lobbyScene()).map((v) => Number(v).toFixed(1)).join(",");
+      const key = (lobbyEdit ? "E:" + (floorEdit ? "F:" : "C:") : "") + floorKey + ":" + cast.map((c) => [c.name, c.url, faceOf(c.name)].join(",")).join("|");
+      if (lobby && lobby.getAttribute("data-key") === key) { cast.forEach(roamState); continue; }
+      if (!lobby) lobby = el("div", "gfx-lobby");
       lobby.setAttribute("data-key", key);
-      if (lobbyEdit) lobby.setAttribute("data-edit", "");
-      cast.forEach((c, i) => lobby.append(makeWho(c, i)));
+      lobby.setAttribute("data-count", String(cast.length));
+      lobby.toggleAttribute("data-edit", lobbyEdit);
+      lobby.toggleAttribute("data-floor-edit", lobbyEdit && floorEdit);
+      const wanted = new Set(cast.map((c) => c.name));
+      for (const who of lobby.querySelectorAll(":scope > .who")) if (!wanted.has(who.getAttribute("data-name"))) who.remove();
+      cast.forEach((c, i) => {
+        let who = Array.from(lobby.children).find((n) => n.classList.contains("who") && n.getAttribute("data-name") === c.name);
+        if (!who) { who = makeWho(c, i); lobby.append(who); }
+        else { roamState(c); setSprite(who.querySelector("img"), c.url, false); }
+      });
+      lobby.querySelector(":scope > .gfx-lobby-floor")?.remove();
+      lobby.querySelector(":scope > .gfx-lobby-tools")?.remove();
+      if (lobbyEdit && floorEdit) lobby.append(floorGuide(lobby));
       lobby.append(lobbyTools());
       const scene = screen.querySelector(":scope > .hm-scene");
-      if (scene) scene.after(lobby); else screen.append(lobby);
+      if (!lobby.isConnected) { if (scene) scene.after(lobby); else screen.append(lobby); }
       startRoam(lobby);
     }
   }
@@ -1452,24 +1884,39 @@ img.baked { filter: none !important; }
    * down — and it faces the way it walks. State is kept by name, so a lobby the game redraws carries on from
    * where everyone was. Only one transform per character is written per frame; nothing is laid out again. */
   const roam = new Map(); // name -> { x, y, tx, ty, ax, ay, s, face, wait, dir }
-  const FLOOR = { x0: 5, x1: 95, y0: 68, y1: 106 }, RANGE = { x: 24, y: 18 };
+  const RANGE = { x: 24, y: 18 };
   let lobbySize = { w: 0, h: 0 }, lobbyRO = null, roamFrame = 0, roamLast = 0;
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-  const depthOf = (y) => clamp((y - FLOOR.y0) / (FLOOR.y1 - FLOOR.y0), 0, 1);
+  function depthOf(x, y, scene = lobbyScene()) {
+    const bx = (scene.backL + scene.backR) / 2, fx = (scene.frontL + scene.frontR) / 2;
+    const dist = Math.hypot((x - scene.vpX) * 0.45, y - scene.vpY);
+    const far = Math.hypot((bx - scene.vpX) * 0.45, scene.backY - scene.vpY);
+    const near = Math.hypot((fx - scene.vpX) * 0.45, scene.frontY - scene.vpY);
+    return clamp((dist - far) / Math.max(1, near - far), 0, 1);
+  }
   function roamState(c) {
     let st = roam.get(c.name);
     if (!st) { st = { x: c.x, y: c.y, tx: c.x, ty: c.y, wait: 0.4 + Math.random() * 2.6, dir: Math.random() < 0.5 ? -1 : 1 }; roam.set(c.name, st); }
     // A moved anchor (from [배치]) takes the character there.
     if (st.ax !== undefined && (st.ax !== c.x || st.ay !== c.y)) { st.x = st.tx = c.x; st.y = st.ty = c.y; st.wait = 1 + Math.random() * 2; }
+    const safe = clampToFloor(st.x, st.y);
+    st.x = safe.x; st.y = safe.y;
+    const target = clampToFloor(st.tx, st.ty);
+    st.tx = target.x; st.ty = target.y;
     st.ax = c.x; st.ay = c.y; st.s = c.s; st.face = faceOf(c.name);
-    if (lobbyEdit) { st.x = st.tx = c.x; st.y = st.ty = c.y; }
     return st;
   }
   function placeWho(who, st) {
     const { w, h } = lobbySize;
     if (!w || !h) return;
-    const k = st.s * (prefs.lobbyScale || 1) * (0.55 + 0.45 * depthOf(st.y));
-    who.style.transform = "translate(" + ((st.x / 100) * w).toFixed(1) + "px," + ((st.y / 100) * h).toFixed(1) + "px) scale(" + k.toFixed(3) + ") translate(-50%,-100%)";
+    const wantedScale = st.s * (prefs.lobbyScale || 1) * (0.5 + 0.5 * depthOf(st.x, st.y));
+    const size = who._gfxSize || (who._gfxSize = { h: who.offsetHeight || h * 0.4, w: who.offsetWidth || h * 0.27 });
+    const ownHeight = size.h, ownWidth = size.w;
+    const k = Math.max(0.1, Math.min(wantedScale, (st.y / 100 * h - 8) / ownHeight, w * .94 / ownWidth));
+    const halfWidth = ownWidth * k * .5;
+    const visualX = Math.min(w - halfWidth, Math.max(halfWidth, st.x / 100 * w));
+    const transform = "translate(" + visualX.toFixed(1) + "px," + ((st.y / 100) * h).toFixed(1) + "px) scale(" + k.toFixed(3) + ") translate(-50%,-100%)";
+    if (who.style.transform !== transform) who.style.transform = transform;
     const z = String(Math.round(st.y * 10));
     if (who.style.zIndex !== z) who.style.zIndex = z;
     // Art facing right is mirrored to walk left, art facing left to walk right; front-facing art never turns.
@@ -1478,8 +1925,10 @@ img.baked { filter: none !important; }
     if (fl && fl.style.transform !== f) fl.style.transform = f;
   }
   function pickTarget(st) {
-    st.tx = clamp(st.ax + (Math.random() * 2 - 1) * RANGE.x, FLOOR.x0, FLOOR.x1);
-    st.ty = clamp(st.ay + (Math.random() * 2 - 1) * RANGE.y, FLOOR.y0, FLOOR.y1);
+    const scene = lobbyScene(), y = scene.backY + Math.random() * (scene.frontY - scene.backY);
+    const edge = floorBoundsAt(y, scene);
+    const p = clampToFloor(edge.left + Math.random() * (edge.right - edge.left), y);
+    st.tx = p.x; st.ty = p.y;
   }
   function roamTick(t) {
     roamFrame = 0;
@@ -1491,14 +1940,15 @@ img.baked { filter: none !important; }
       if (!who.classList.contains("who")) continue;
       const st = roam.get(who.getAttribute("data-name"));
       if (!st) continue;
-      const busy = lobbyEdit || who.hasAttribute("data-talk") || who.hasAttribute("data-pinch");
+      const busy = document.hidden || !prefs.opts.motion || lobbyEdit || who.hasAttribute("data-talk") || who.hasAttribute("data-pinch")
+        || !!lobby.parentElement?.querySelector("[data-chat-close]");
       let walking = false;
       if (!busy && dt) {
         if (st.wait > 0) { st.wait -= dt; if (st.wait <= 0) pickTarget(st); }
         else {
           // Depth counts for more than width, so a walk "into" the room is slower on screen, as it should be.
           const dx = st.tx - st.x, dy = (st.ty - st.y) * 1.7, dist = Math.hypot(dx, dy);
-          const step = 5.5 * (0.6 + 0.4 * depthOf(st.y)) * dt;
+          const step = 5.5 * (0.6 + 0.4 * depthOf(st.x, st.y)) * dt;
           if (dist <= step) { st.x = st.tx; st.y = st.ty; st.wait = 1.4 + Math.random() * 3.6; }
           else {
             st.x += (dx / dist) * step;
@@ -1514,7 +1964,12 @@ img.baked { filter: none !important; }
     roamFrame = requestAnimationFrame(roamTick);
   }
   function startRoam(lobby) {
-    if (!lobbyRO) lobbyRO = new ResizeObserver((entries) => { for (const e of entries) lobbySize = { w: e.contentRect.width, h: e.contentRect.height }; });
+    if (!lobbyRO) lobbyRO = new ResizeObserver((entries) => {
+      for (const e of entries) {
+        lobbySize = { w: e.contentRect.width, h: e.contentRect.height };
+        for (const who of e.target.querySelectorAll(":scope > .who")) who._gfxSize = null;
+      }
+    });
     lobbyRO.disconnect();
     lobbyRO.observe(lobby);
     lobbySize = { w: lobby.clientWidth, h: lobby.clientHeight };
@@ -1531,6 +1986,7 @@ img.baked { filter: none !important; }
     const flip = el("div", "flip"), body = el("div", "body"), img = el("img");
     const fit = () => {
       if (img.naturalWidth && img.naturalHeight) who.style.aspectRatio = img.naturalWidth + " / " + img.naturalHeight;
+      who._gfxSize = null;
       who.style.setProperty("--hf", img.style.getPropertyValue("--hf") || "1");
     };
     img.addEventListener("load", fit);
@@ -1554,8 +2010,10 @@ img.baked { filter: none !important; }
         if (started) who.setAttribute("data-pinched", ""); else who.removeAttribute("data-pinch");
         return;
       }
+      if (floorEdit) return;
       e.preventDefault();
       lobbyPicked = c.name;
+      who.setAttribute("data-dragging", "");
       const box = who.parentElement.getBoundingClientRect();
       who.setPointerCapture(e.pointerId);
       // The feet keep the offset they had from the pointer, so the character does not jump under it.
@@ -1563,19 +2021,29 @@ img.baked { filter: none !important; }
       const [px0, py0] = at(e), ox = st.x - px0, oy = st.y - py0;
       const move = (ev) => {
         const [px, py] = at(ev);
-        c.x = st.x = st.tx = clamp(px + ox, FLOOR.x0, FLOOR.x1);
-        c.y = st.y = st.ty = clamp(py + oy, FLOOR.y0, FLOOR.y1);
+        const p = clampToFloor(px + ox, py + oy);
+        c.x = st.x = st.tx = p.x;
+        c.y = st.y = st.ty = p.y;
         placeWho(who, st);
       };
+      let ended = false;
       const up = () => {
+        if (ended) return;
+        ended = true;
+        who.removeAttribute("data-dragging");
         who.removeEventListener("pointermove", move);
         who.removeEventListener("pointerup", up);
-        setHome(c.name, { x: c.x, y: c.y });
+        who.removeEventListener("pointercancel", up);
+        who.removeEventListener("lostpointercapture", up);
+        setHome(c.name, { x: st.x, y: st.y });
+        st.ax = st.x; st.ay = st.y;
         savePrefs();
         refresh();
       };
       who.addEventListener("pointermove", move);
       who.addEventListener("pointerup", up);
+      who.addEventListener("pointercancel", up);
+      who.addEventListener("lostpointercapture", up);
     });
     on(who, "click", (e) => {
       e.stopPropagation();
@@ -1599,6 +2067,78 @@ img.baked { filter: none !important; }
     prefs.lobbyScale = Math.min(2, Math.max(0.5, +((prefs.lobbyScale || 1) * f).toFixed(3)));
     savePrefs();
   }
+  function floorGuide(lobby) {
+    const guide = el("div", "gfx-lobby-floor");
+    const ns = "http://www.w3.org/2000/svg", svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("preserveAspectRatio", "none");
+    const area = document.createElementNS(ns, "polygon");
+    const rays = [0, 1, 2, 3].map(() => document.createElementNS(ns, "line"));
+    svg.append(area, ...rays);
+    guide.append(svg);
+    const vp = el("button", "", "소실점");
+    vp.type = "button"; vp.setAttribute("data-floor-handle", "vp"); vp.setAttribute("data-floor-drag", "vp");
+    guide.append(vp);
+    const edges = new Map();
+    for (const [id, label] of [["far", "멀리 걷는 선"], ["near", "가까이 걷는 선"]]) {
+      const edge = el("div", "gfx-floor-edge");
+      edge.setAttribute("data-floor-line", id);
+      const left = el("button", "edge-end"); left.type = "button"; left.setAttribute("data-side", "left"); left.setAttribute("data-floor-drag", "left");
+      const mid = el("button", "edge-mid", label); mid.type = "button"; mid.setAttribute("data-floor-drag", "mid");
+      const right = el("button", "edge-end"); right.type = "button"; right.setAttribute("data-side", "right"); right.setAttribute("data-floor-drag", "right");
+      edge.append(left, mid, right); guide.append(edge); edges.set(id, edge);
+    }
+    const draw = () => {
+      const s = lobbyScene(), corners = [[s.backL, s.backY], [s.backR, s.backY], [s.frontR, s.frontY], [s.frontL, s.frontY]];
+      area.setAttribute("points", corners.map((p) => p.join(",")).join(" "));
+      corners.forEach((p, i) => {
+        rays[i].setAttribute("x1", String(s.vpX)); rays[i].setAttribute("y1", String(s.vpY));
+        rays[i].setAttribute("x2", String(p[0])); rays[i].setAttribute("y2", String(p[1]));
+      });
+      vp.style.left = s.vpX + "%"; vp.style.top = s.vpY + "%";
+      const far = edges.get("far"), near = edges.get("near");
+      far.style.left = s.backL + "%"; far.style.width = (s.backR - s.backL) + "%"; far.style.top = s.backY + "%";
+      near.style.left = s.frontL + "%"; near.style.width = (s.frontR - s.frontL) + "%"; near.style.top = s.frontY + "%";
+      for (const who of lobby.querySelectorAll(":scope > .who")) {
+        const name = who.getAttribute("data-name"), st = roam.get(name);
+        if (!st) continue;
+        const p = clampToFloor(st.x, st.y, s), tp = clampToFloor(st.tx, st.ty, s);
+        st.x = p.x; st.y = p.y; st.tx = tp.x; st.ty = tp.y;
+        placeWho(who, st);
+      }
+    };
+    for (const h of guide.querySelectorAll("[data-floor-drag]")) {
+      on(h, "pointerdown", (e) => {
+        e.preventDefault(); e.stopPropagation(); h.setPointerCapture(e.pointerId);
+        const edge = h.closest("[data-floor-line]"), line = edge?.getAttribute("data-floor-line") || "", mode = h.getAttribute("data-floor-drag");
+        const move = (ev) => {
+          const box = lobby.getBoundingClientRect();
+          let x = clamp(((ev.clientX - box.left) / box.width) * 100, 0, 100);
+          let y = clamp(((ev.clientY - box.top) / box.height) * 100, 0, 96);
+          const s = lobbyScene(), patch = {};
+          if (mode === "vp") { patch.vpX = x; patch.vpY = clamp(y, 0, s.backY - 4); }
+          else if (mode === "mid" && line === "far") patch.backY = clamp(y, 42, s.frontY - 8);
+          else if (mode === "mid" && line === "near") patch.frontY = clamp(y, s.backY + 8, 96);
+          else if (mode === "left" && line === "far") patch.backL = clamp(x, 0, s.backR - 6);
+          else if (mode === "right" && line === "far") patch.backR = clamp(x, s.backL + 6, 100);
+          else if (mode === "left" && line === "near") patch.frontL = clamp(x, 0, s.frontR - 6);
+          else if (mode === "right" && line === "near") patch.frontR = clamp(x, s.frontL + 6, 100);
+          setLobbyScene(patch);
+          draw();
+        };
+        const up = () => {
+          h.removeEventListener("pointermove", move); h.removeEventListener("pointerup", up);
+          h.removeEventListener("pointercancel", up); h.removeEventListener("lostpointercapture", up);
+          for (const [name, st] of roam) setHome(name, { x: st.x, y: st.y });
+          savePrefs(); refresh();
+        };
+        h.addEventListener("pointermove", move); h.addEventListener("pointerup", up);
+        h.addEventListener("pointercancel", up); h.addEventListener("lostpointercapture", up);
+      });
+    }
+    draw();
+    return guide;
+  }
   function lobbyTools() {
     const tools = el("div", "gfx-lobby-tools");
     const btn = (text, fn, attr) => {
@@ -1610,9 +2150,11 @@ img.baked { filter: none !important; }
       return b;
     };
     if (lobbyEdit) {
-      tools.append(btn("완료", () => { lobbyEdit = false; lobbyPicked = ""; refresh(); }, "data-main"),
+      tools.append(btn("완료", () => { lobbyEdit = false; floorEdit = false; lobbyPicked = ""; refresh(); }, "data-main"),
+        btn(floorEdit ? "캐릭터 배치" : "소실점 · 바닥", () => { floorEdit = !floorEdit; lobbyPicked = ""; refresh(); }),
         btn("모두 크게", () => resizeLobby(1.1)), btn("모두 작게", () => resizeLobby(0.9)),
         btn("자동 배치", () => { const w = world(); if (w) { for (const e of Object.values(prefs.home[w.id] || {})) { e.x = NaN; e.y = NaN; e.s = 1; } savePrefs(); refresh(); } }));
+      if (floorEdit) tools.append(btn("바닥 초기화", () => { setLobbyScene(DEFAULT_FLOOR); savePrefs(); refresh(); }));
       // Who stands in the lobby: every character with an SD, pressed ones are out.
       const w = world(), mine = (w && prefs.home[w.id]) || {};
       const cast = el("div", "gfx-lobby-cast");
@@ -1623,7 +2165,7 @@ img.baked { filter: none !important; }
         cast.append(b);
       }
       tools.append(cast);
-    } else tools.append(btn("✥ 배치", () => { lobbyEdit = true; refresh(); }, "data-edit-toggle"));
+    } else tools.append(btn("✥ 배치", () => { lobbyEdit = true; floorEdit = false; refresh(); }, "data-edit-toggle"));
     return tools;
   }
 
@@ -1642,7 +2184,8 @@ img.baked { filter: none !important; }
     if (boundRoots.has(root)) return;
     boundRoots.add(root);
     on(root, "click", (e) => {
-      if (!current || !prefs.opts.attend || !e.target.closest?.("[data-events-claim]")) return;
+      const claim = e.target.closest?.('.ev-panel[data-gfx-attendance] [data-events-claim]');
+      if (!current || !prefs.opts.attend || !claim) return;
       // The stamp lands at once; when the game has taken the claim, the board closes by itself.
       root.querySelector(".ev-panel .ev-day.next")?.classList.add("gfx-stamped");
       const t0 = performance.now();
@@ -1659,7 +2202,10 @@ img.baked { filter: none !important; }
     bindAttend(root);
     for (const panel of root.querySelectorAll(".ev-panel")) {
       let m = panel.querySelector(":scope > .gfx-ev-mascot");
-      if (!enabled) { m?.remove(); continue; }
+      const attendance = enabled && !!panel.querySelector(".ev-day");
+      if (attendance) panel.setAttribute("data-gfx-attendance", "");
+      else panel.removeAttribute("data-gfx-attendance");
+      if (!attendance) { m?.remove(); continue; }
 
       if (m) continue;
       m = el("div", "gfx-ev-mascot");
@@ -1735,7 +2281,13 @@ img.baked { filter: none !important; }
   }
   function ensureLoadMounted() {
     const root = gameRoot();
-    if (load && root && load.node.parentNode !== root) root.append(load.node);
+    if (!root) return;
+    const target = root.querySelector(".gf-stage") || root.querySelector(".gf-arena");
+    if (!target) return;
+    let mount = target.querySelector(":scope > .gfx-load-host");
+    if (!load) { if (mount && !mount.childElementCount) mount.remove(); return; }
+    if (!mount) { mount = el("div", "gfx-load-host"); target.append(mount); }
+    if (load.node.parentNode !== mount) mount.append(load.node);
   }
   let loadingSince = 0;
   function tickLoading() {
@@ -1764,7 +2316,8 @@ img.baked { filter: none !important; }
         const node = load.node;
         node.setAttribute("data-out", "");
         load = null;
-        setTimeout(() => node.remove(), 280);
+        const mount = node.parentElement;
+        setTimeout(() => { node.remove(); if (mount && !mount.childElementCount) mount.remove(); }, 280);
         return;
       }
     } else {
@@ -1805,13 +2358,31 @@ img.baked { filter: none !important; }
     });
     return b;
   }
+  let settingsView = "ui";
   function plate(title, key) {
     const p = el("div", "st-plate");
     p.setAttribute("data-gfx-plate", key);
+    p.setAttribute("data-gfx-section", key === "sd" ? "sd" : "ui");
     const hd = el("div", "hd");
     hd.append(el("h3", "", title));
     p.append(hd);
     return p;
+  }
+  function settingsNav(container) {
+    const nav = el("div", "gfx-settings-nav");
+    nav.setAttribute("data-gfx-plate", "nav");
+    nav.setAttribute("data-gfx-settings-nav", "");
+    for (const [id, label] of [["ui", "UI 설정"], ["sd", "SD 관리"]]) {
+      const b = chip(label, () => {
+        settingsView = id;
+        container?.setAttribute("data-gfx-settings-view", settingsView);
+        for (const x of nav.querySelectorAll("button")) x.setAttribute("aria-pressed", String(x === b));
+        if (id === "sd") { loadConnections(); loadWorld(); paintSettings(true); }
+      });
+      b.setAttribute("aria-pressed", String(settingsView === id));
+      nav.append(b);
+    }
+    return nav;
   }
   function hint(text, key) {
     const p = el("p", "hint", text);
@@ -1968,7 +2539,7 @@ img.baked { filter: none !important; }
     const w = world();
     for (const list of root.querySelectorAll("[data-gfx-sd-list]")) {
       const cards = w ? w.cards : [];
-      const keyNow = sdEditing + "/" + cards.map((c) => c.name + ":" + (w.sd[c.name]?.url || "") + ":" + (w.busy.has(c.name) ? 1 : 0)).join("|");
+      const keyNow = sdEditing + "/" + cards.map((c) => c.name + ":" + (w.sd[c.name]?.url || "") + ":" + JSON.stringify(w.sd[c.name]?.variants || {}) + ":" + (w.busy.has(c.name) ? 1 : 0)).join("|");
       if (list.getAttribute("data-key") === keyNow) continue;
       list.setAttribute("data-key", keyNow);
       list.textContent = "";
@@ -2000,8 +2571,11 @@ img.baked { filter: none !important; }
     const c = w && w.cards.find((x) => x.name === sdEditing);
     for (const box of root.querySelectorAll("[data-gfx-sd-edit]")) {
       const e = c ? sdEntry(c.name) : {};
-      const key = c ? [c.name, e.url || "", JSON.stringify(e.cheeks || []), cheekR(c.name), faceOf(c.name), e.tall || 1, linesRev].join("|") : "";
+      if (c) loadUnitDetails(c, w);
+      const key = c ? [c.name, e.url || "", JSON.stringify(e.variants || {}), Array.from(w.outfits.get(c.name) || []).join(","), JSON.stringify(e.cheeks || []), cheekR(c.name), faceOf(c.name), e.tall || 1, linesRev].join("|") : "";
       if (box.getAttribute("data-key") === key) continue;
+      box._gfxMarkerRO?.disconnect();
+      box._gfxMarkerRO = null;
       box.setAttribute("data-key", key);
       box.textContent = "";
       box.hidden = !c;
@@ -2024,6 +2598,9 @@ img.baked { filter: none !important; }
           }
         };
         if (img.complete) requestAnimationFrame(marks); else img.addEventListener("load", marks, { once: true });
+        const markerRO = new ResizeObserver(marks);
+        markerRO.observe(pad);
+        box._gfxMarkerRO = markerRO;
         let pinched = false;
         on(pad, "pointerdown", (ev) => {
           ev.stopPropagation();
@@ -2039,14 +2616,16 @@ img.baked { filter: none !important; }
           // Two cheeks at most: a third tap moves the nearer one.
           if (now.length >= 2) now.splice(now.findIndex((q, i, a) => Math.hypot(q.x - p.x, q.y - p.y) === Math.min(...a.map((z) => Math.hypot(z.x - p.x, z.y - p.y)))), 1, p);
           else now.push(p);
-          saveSdEntry(c.name, { cheeks: now }).then(() => paintSettings());
+          saveSdEntry(c.name, { cheeks: now });
+          sdEditKey = "";
+          paintSettings();
         });
       } else pad.append(el("p", "hint", "먼저 SD를 그려 주세요."));
       side.append(el("b", "", c.name));
       side.append(hint("그림에서 볼을 누르면 볼 위치(최대 2곳)가 정해집니다. 정한 곳을 누른 채 끌면 미리 당겨 볼 수 있습니다.", ""));
       const size = el("div", "st-chips");
-      for (const [r, label] of [[0.04, "볼 작게"], [0.06, "보통"], [0.08, "볼 크게"]]) {
-        const b = chip(label, () => saveSdEntry(c.name, { cheekR: r }).then(() => paintSettings()));
+      for (const [r, label] of [[0.025, "볼 작게"], [0.04, "보통"], [0.055, "볼 크게"]]) {
+        const b = chip(label, () => { saveSdEntry(c.name, { cheekR: r }); sdEditKey = ""; paintSettings(); });
         b.setAttribute("aria-pressed", String(Math.abs(cheekR(c.name) - r) < 0.001));
         size.append(b);
       }
@@ -2068,6 +2647,18 @@ img.baked { filter: none !important; }
         tall.append(b);
       }
       side.append(tall);
+      const outfits = Array.from(w.outfits.get(c.name) || []);
+      if (outfits.length) {
+        side.append(hint("의상별 SD — 스토리에서 발견한 다른 의상입니다. 의상마다 따로 만들면 해당 초상이 나올 때 자동으로 바뀝니다.", ""));
+        const variants = el("div", "st-chips");
+        outfits.forEach((variantKey, i) => {
+          const exists = !!e.variants?.[variantKey];
+          const outfit = w.details.get(c.name)?.outfits?.find((o) => pathOf(o.url) === variantKey);
+          variants.append(chip((outfit?.name || "의상 " + (i + 1)) + (exists ? " 다시" : " 만들기"), () => makeSd(c, variantKey)));
+          if (exists) variants.append(chip("의상 " + (i + 1) + " 지우기", () => removeSdVariant(c.name, variantKey)));
+        });
+        side.append(variants);
+      }
       const field = (label, value, save) => {
         const lab = el("label", "gfx-field");
         lab.append(el("span", "", label));
@@ -2147,7 +2738,7 @@ img.baked { filter: none !important; }
     return new Blob([bytes], { type: m[1] });
   }
   const extOf = (mime) => (/png/.test(mime) ? ".png" : /webp/.test(mime) ? ".webp" : /jpe?g/.test(mime) ? ".jpg" : ".png");
-  async function makeSd(card) {
+  async function makeSd(card, variantKey = "") {
     const w = world();
     if (!w || w.busy.has(card.name)) return;
     const connId = gameRoot()?.querySelector("[data-gfx-conn]")?.value || prefs.gen.connectionId || host()?._run?.images?.connectionId || "";
@@ -2157,8 +2748,18 @@ img.baked { filter: none !important; }
     w.note = "";
     paintSettings();
     try {
+      // A random 3–7s wait before each request, so a batch of SDs is not fired at the image service back to back.
+      const wait = 3000 + Math.round(Math.random() * 4000);
+      w.note = card.name + " — " + (wait / 1000).toFixed(1) + "초 뒤에 그립니다.";
+      paintSettings();
+      await new Promise((res) => setTimeout(res, wait));
+      if (disposed) return;
+      w.note = card.name + " 그리는 중…";
+      paintSettings();
       const u = await gf("/unit", { runId: w.id, unitId: card.id });
-      const appearance = String((u.unit && u.unit.appearance) || "").trim();
+      const outfit = variantKey && u.unit?.outfits?.find((o) => o.url && pathOf(o.url) === pathOf(variantKey));
+      if (variantKey && !outfit) throw Error("해당 의상 정보를 찾을 수 없습니다. SD 편집을 다시 열어 주세요.");
+      const appearance = String(outfit?.prompt || [u.unit?.appearance, outfit?.outfitLine, ...(outfit?.outfitTags || [])].filter(Boolean).join(", ")).trim();
       const prompt = prefs.gen.template.replace(/\{appearance\}/g, appearance || card.name).replace(/\{name\}/g, card.name).replace(/\s+/g, " ").trim();
       const [width, height] = prefs.gen.size.split("x").map(Number);
       const res = await fetch("/api/characters/avatar-generation", {
@@ -2181,7 +2782,11 @@ img.baked { filter: none !important; }
       const up = await fetch("/api/global-gallery/upload", { method: "POST", credentials: "same-origin", headers: CSRF, body: form });
       const saved = await up.json().catch(() => null);
       if (!up.ok || !saved || !saved.url) throw Error((saved && saved.error) || "갤러리 저장 실패 (HTTP " + up.status + ")");
-      w.sd = { ...w.sd, [card.name]: { url: saved.url, at: Date.now() } };
+      const old = w.sd[card.name] || {};
+      const next = variantKey
+        ? { ...old, variants: { ...(old.variants || {}), [variantKey]: { url: saved.url, at: Date.now() } } }
+        : { ...old, url: saved.url, at: Date.now() };
+      w.sd = { ...w.sd, [card.name]: next };
       if (!(await storePatch({ ["sd:" + w.id]: w.sd }))) w.note = "그림은 갤러리에 저장했고 이 브라우저에 보관했습니다. 서버 기록은 다시 시도합니다 (" + lastStoreError + ").";
     } catch (e) {
       w.note = card.name + " 그리기 실패: " + e.message;
@@ -2241,6 +2846,16 @@ img.baked { filter: none !important; }
     await storePatch({ ["sd:" + w.id]: w.sd });
     refresh();
   }
+  async function removeSdVariant(name, variantKey) {
+    const w = world(), old = w?.sd[name];
+    if (!w || !old) return;
+    const variants = { ...(old.variants || {}) };
+    delete variants[variantKey];
+    w.sd = { ...w.sd, [name]: { ...old, variants } };
+    await storePatch({ ["sd:" + w.id]: w.sd });
+    sdEditKey = "";
+    refresh();
+  }
 
   // While one of ours is on, the game's own cards all read unpressed and ours reads pressed.
   function paintCards(root) {
@@ -2265,10 +2880,13 @@ img.baked { filter: none !important; }
       }
       const stylePlate = list.closest(".st-plate");
       if (!stylePlate) continue;
+      const container = stylePlate.parentElement;
+      if (container && current) container.setAttribute("data-gfx-settings-view", settingsView);
+      else container?.removeAttribute("data-gfx-settings-view");
       const mine = [];
       for (let n = stylePlate.nextElementSibling; n && n.hasAttribute("data-gfx-plate"); n = n.nextElementSibling) mine.push(n);
       if (current && !mine.length) {
-        stylePlate.after(colorPlate(), screenPlate(), optionPlate(), sdPlate());
+        stylePlate.after(settingsNav(container), colorPlate(), screenPlate(), optionPlate(), sdPlate());
         loadConnections();
         loadWorld();
         paintSettings(true);
@@ -2285,9 +2903,11 @@ img.baked { filter: none !important; }
     const root = gameRoot();
     if (!root) return;
     const id = runId();
-    if (id !== lastRun) { lastRun = id; if (current) loadWorld(); }
-    mountSettings(root);
-    paintSettings();
+    if (id !== lastRun) { lastRun = id; roam.clear(); if (current) loadWorld(); }
+    if (root.querySelector(".st-styles, [data-gfx-plate]")) {
+      mountSettings(root);
+      paintSettings();
+    }
     paintSprites(root);
     ensureLoadMounted();
   }
@@ -2296,6 +2916,18 @@ img.baked { filter: none !important; }
     if (disposed || scheduled) return;
     scheduled = true;
     requestAnimationFrame(() => { scheduled = false; refresh(); });
+  }
+  const OWN_SELECTOR = "[data-gfx-ui], [data-gfx-plate], [data-gfx-set], .gfx-sd-list, .gfx-lobby, .gfx-team, .gfx-ev-mascot, .gfx-foe, .gfx-vn-cast, .gfx-load-host, .gfx-tiles, .gfx-battle-tile, .gfx-forge-mascot, img.gfx-sd";
+  function isOwnNode(node) {
+    return !!(node && node.nodeType === 1 && (node.matches?.(OWN_SELECTOR) || node.closest?.(OWN_SELECTOR)));
+  }
+  function isOwnMutation(record) {
+    // Typewriter characters and currency clocks never change the cast or screen layout.
+    if (record.target.nodeType === 1 && record.target.closest?.(".vn-text, [data-bar-vigor], [data-vigor-next], [data-bar-funds], [data-bar-aether]")) return true;
+    if (isOwnNode(record.target)) return true;
+    if (record.type !== "childList") return false;
+    const changed = [...record.addedNodes, ...record.removedNodes];
+    return changed.length > 0 && changed.every((node) => node.nodeType === 1 ? isOwnNode(node) : isOwnNode(record.target));
   }
   function watch() {
     if (disposed) return;
@@ -2306,19 +2938,17 @@ img.baked { filter: none !important; }
       if (root) {
         observer = new MutationObserver((records) => {
           // The loading screen goes back at once (before paint); the rest can wait a frame or two.
-          ensureLoadMounted();
           for (const r of records) {
-            const t = r.target;
-            if (t.nodeType === 1 && t.closest && t.closest("[data-gfx-ui], [data-gfx-plate], .gfx-sd-list, .gfx-lobby, .gfx-team, .gfx-ev-mascot, .gfx-foe, .gfx-vn-cast")) continue;
+            if (isOwnMutation(r)) continue;
             return schedule();
           }
         });
-        observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-open", "data-front", "src", "class", "hidden"] });
+        observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-open", "data-front", "data-cg", "data-on", "src", "hidden"] });
       }
+      refresh();
     }
-    refresh();
   }
-  const interval = setInterval(watch, 1500);
+  const interval = setInterval(watch, 2000);
   // The game element is made when its tab opens (and again on reload): watch for it, so the style is on it in
   // the same frame rather than up to 1.5s later with the game's own look showing meanwhile.
   const pageObserver = new MutationObserver((records) => {
@@ -2328,30 +2958,46 @@ img.baked { filter: none !important; }
   });
   pageObserver.observe(document.documentElement, { childList: true, subtree: true });
   const loadTick = setInterval(tickLoading, 120);
+  const syncTick = setInterval(syncStored, 30000);
+  on(window, "focus", syncStored);
   watch();
   loadFonts();
-  // Server copy of the colours and options wins over this browser's cache.
-  storeGet().then((v) => { if (!disposed && v.prefs) { prefs = normalizePrefs(v.prefs); try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {} refresh(); paintSettings(true); } });
+  // Pending browser changes win until the serialized server write acknowledges them.
+  storeGet().then((v) => {
+    if (disposed || (!v.prefs && !readPending().prefs)) return;
+    prefs = normalizePrefs({ ...(v.prefs || {}), ...(readPending().prefs || {}) });
+    try { localStorage.setItem(CACHE, JSON.stringify(prefs)); } catch {}
+    refresh();
+    paintSettings(true);
+  });
   // Another tab of the same browser changed the style.
   on(window, "storage", (e) => { if (e.key === STORE) { current = readStyle(); refresh(); } });
 
-  window[KEY] = () => {
+  const disposeExtension = () => {
     if (disposed) return;
     disposed = true;
     life.abort();
+    for (const cleanup of pinchCleanups) cleanup();
     clearInterval(interval);
     clearInterval(loadTick);
+    clearInterval(syncTick);
     clearInterval(chatter);
     clearInterval(retryTimer);
     pageObserver.disconnect();
     if (roamFrame) cancelAnimationFrame(roamFrame);
     lobbyRO?.disconnect();
     observer?.disconnect();
+    for (const baked of bakedMap.values()) if (baked && typeof baked === "object" && baked.url) URL.revokeObjectURL(baked.url);
+    bakedMap.clear();
     const h = host(), root = h?.shadowRoot;
     for (const a of [ATTR, "data-gfx-box", "data-gfx-sticker", "data-gfx-motion", "data-gfx-field", "data-gfx-team", "data-gfx-hideplate", "data-gfx-attend", "data-gfx-phase", "data-gfx-lobby"]) h?.removeAttribute(a);
     if (root) root.adoptedStyleSheets = root.adoptedStyleSheets.filter((s) => s !== sheet && s !== varSheet);
-    for (const n of root?.querySelectorAll("[data-gfx-set], [data-gfx-plate], [data-gfx-ui], img.gfx-sd, .gfx-forge-mascot, .gfx-foe, .gfx-team, .gfx-lobby, .gfx-ev-mascot, .gfx-tiles, .gfx-vn-cast") || []) n.remove();
-    for (const n of root?.querySelectorAll("[data-gfx-sd], [data-gfx-foe]") || []) { n.removeAttribute("data-gfx-sd"); n.removeAttribute("data-gfx-foe"); }
-    if (window[KEY]) delete window[KEY];
+    for (const n of root?.querySelectorAll("[data-gfx-set], [data-gfx-plate], [data-gfx-ui], img.gfx-sd, .gfx-forge-mascot, .gfx-foe, .gfx-team, .gfx-lobby, .gfx-ev-mascot, .gfx-tiles, .gfx-vn-cast, .gfx-load-host") || []) n.remove();
+    for (const n of root?.querySelectorAll("[data-gfx-sd], [data-gfx-foe], [data-gfx-attendance], [data-gfx-settings-view]") || []) {
+      n.removeAttribute("data-gfx-sd"); n.removeAttribute("data-gfx-foe"); n.removeAttribute("data-gfx-attendance"); n.removeAttribute("data-gfx-settings-view");
+    }
+    if (window[KEY] === disposeExtension) delete window[KEY];
   };
+  window[KEY] = disposeExtension;
+  MARINARA?.onCleanup?.(disposeExtension);
 })();
