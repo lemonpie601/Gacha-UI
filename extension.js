@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.13 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.14 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -325,6 +325,10 @@ ${T} .gf-stage, ${T} .hm-ground {
   background-image: var(--gfx-dots), linear-gradient(160deg, var(--glow-1), var(--ground-1) 45%, var(--glow-2)) !important;
 }
 
+/* The top bar's buttons stay inside the bar whatever else styles them (another extension making them round
+ * and bigger pushed their tops past the edge of the game screen, where they were cut off). */
+${T} .gf-bar { align-items: center !important; }
+${T} .gf-bar :is(.icon-button, .currency) { box-sizing: border-box !important; max-height: 100%; align-self: center !important; margin-block: 0 !important; }
 /* Chunky outlined pieces: buttons press down onto a hard outline-coloured shadow. */
 ${T} .currency, ${T} .icon-button, ${T} .hm-chat, ${T} .hm-side, ${T} .hm-slot, ${T} .sv-q,
 ${T} .st-sect, ${T} .st-chip, ${T} .back, ${T} button.act, ${T} .diff-pill, ${T} .btn {
