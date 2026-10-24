@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.6.1 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.6.2 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -612,7 +612,10 @@ ${LB} .hm-slot-bg { opacity: 0.85; }
 .gfx-lobby .who { position: absolute; left: 0; top: 0; height: 40%; aspect-ratio: 2 / 3; transform-origin: 0 0; will-change: transform;
   pointer-events: auto; cursor: pointer; touch-action: none; }
 .gfx-lobby .who .body { position: absolute; inset: 0; display: grid; place-items: end center; transform-origin: 50% 100%; animation: gfx-bob 1.9s ease-in-out infinite; animation-delay: var(--bdl, 0s); }
-.gfx-lobby .who img { max-width: 150%; max-height: 100%; object-fit: contain; filter: ${STICKER}; -webkit-user-drag: none; user-select: none; }
+/* The image fills its box exactly; the box takes the image's own proportions (set on load), so the
+   [배치] outline, the drag area and the cheek points all match the drawn sprite. */
+.gfx-lobby .who img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%;
+  filter: ${STICKER}; -webkit-user-drag: none; user-select: none; }
 .gfx-lobby .who::after { content: ""; position: absolute; bottom: -3%; left: 20%; right: 20%; height: 7%; border-radius: 50%; z-index: -1;
   background: color-mix(in srgb, var(--gfx-line) 32%, transparent); }
 .gfx-lobby .who[data-squish] .body { animation: gfx-squash 380ms ease; }
@@ -1484,7 +1487,10 @@ img.baked { filter: none !important; }
     const st = roamState(c);
     if (lobbyEdit && c.name === lobbyPicked) who.style.outlineStyle = "solid";
     const flip = el("div", "flip"), body = el("div", "body"), img = el("img");
+    const fit = () => { if (img.naturalWidth && img.naturalHeight) who.style.aspectRatio = img.naturalWidth + " / " + img.naturalHeight; };
+    img.addEventListener("load", fit);
     setSprite(img, c.url, false);
+    if (img.complete) fit();
     img.alt = c.name;
     img.draggable = false;
     body.append(img);
