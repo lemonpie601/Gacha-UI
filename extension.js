@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.16 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.17 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -936,6 +936,18 @@ img.baked { filter: none !important; }
   border: 2px solid var(--steel-dark); border-radius: 10px; padding: 0.45em 0.6em; }
 .gfx-field input { font: inherit; font-size: var(--t-xs, 12px); color: var(--text); background: var(--surface, #fff);
   border: 2px solid var(--steel-dark); border-radius: 10px; padding: 0.4em 0.6em; }
+/* No scrollbars anywhere under 말랑: lists still scroll with the wheel, a finger or a drag. */
+${T} .gf-arena, ${T} .gf-arena * { scrollbar-width: none; }
+${T} .gf-arena::-webkit-scrollbar, ${T} .gf-arena *::-webkit-scrollbar { display: none; }
+/* The settings rail: the extra 말랑 tab made it a little wider than its column and a sideways scrollbar
+ * showed. It never scrolls sideways, and a long list scrolls without drawing a bar. */
+${T} .st-rail { overflow-x: hidden !important; scrollbar-width: none; }
+${T} .st-rail::-webkit-scrollbar { display: none; }
+${T} .st-rail > .st-sect { min-width: 0; max-width: 100%; box-sizing: border-box; }
+${T} .st-rail > .st-sect .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Story: a character stepping in or out, or the place wipe, must never give the scene a sideways scrollbar. */
+${T} .vn { overflow-x: clip !important; }
+${T} :is(.vn-dock, .vn-bar) { overflow-x: clip !important; }
 /* The 말랑 tab's panel: its plates take the place of the game's while it is open. */
 .st-pane[data-gfx-tab-open] > :not(.gfx-view) { display: none !important; }
 .gfx-view { display: contents; }
@@ -988,7 +1000,7 @@ ${T} .root:has(:is([data-chat-close], .hm-pk-wrap)) .gfx-lobby .body { animation
  * battle-pass track keeps a thin one. */
 ${T} [data-screen="events"] :is(.ev-rail-scroll, .ev-pane, .pv-missions, .sv-fights, .sv-box, .sv-grid) { scrollbar-width: none; }
 ${T} [data-screen="events"] :is(.ev-rail-scroll, .ev-pane, .pv-missions, .sv-fights, .sv-box, .sv-grid)::-webkit-scrollbar { display: none; }
-${T} [data-screen="events"] .pv-track { scrollbar-width: thin; }
+${T} [data-screen="events"] .pv-track { scrollbar-width: none; }
 /* Tidewalk: the pawn's hop on a roll stays drawn but no longer counts as overflow of the panel. */
 ${T} [data-screen="events"] .bd { overflow: clip; overflow-clip-margin: 2em; }
 ${T} [data-screen="events"], ${T} [data-screen="events"] > .body, ${T} [data-screen="events"] .ev-cols { min-height: 0; min-width: 0; overflow: hidden !important; }
@@ -3292,7 +3304,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       tab.setAttribute("role", "tab");
       tab.setAttribute("data-gfx-tab", "");
       tab.setAttribute("data-gfx-ui", "");
-      tab.append(el("span", "k", "말랑"), el("span", "n", "UI · SD"));
+      tab.append(el("span", "k", "말랑"), el("span", "n", "UI·SD"));
       on(tab, "click", (e) => { e.stopPropagation(); malangOpen = true; const p = gameRoot()?.querySelector(".st-pane"); if (p) p.scrollTop = 0; refresh(); });
       const visual = rail.querySelector('[data-view="visual"]');
       if (visual) visual.after(tab); else rail.append(tab);
