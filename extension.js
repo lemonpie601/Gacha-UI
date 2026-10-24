@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.9 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.10 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -277,7 +277,7 @@ ${T} .gf-stage, ${T} .hm-ground {
 
 /* Chunky outlined pieces: buttons press down onto a hard outline-coloured shadow. */
 ${T} .currency, ${T} .icon-button, ${T} .hm-chat, ${T} .hm-side, ${T} .hm-slot, ${T} .sv-q,
-${T} .st-sect, ${T} .st-chip, ${T} .back, ${T} .act, ${T} .diff-pill, ${T} .btn {
+${T} .st-sect, ${T} .st-chip, ${T} .back, ${T} button.act, ${T} .diff-pill, ${T} .btn {
   border: 2px solid var(--gfx-line) !important;
   box-shadow: 0 0.22em 0 var(--gfx-line) !important;
 }
@@ -285,7 +285,15 @@ ${T} .hm-tile, ${T} .hm-cta, ${T} .st-plate, ${T} .st-sty, ${T} .ev-panel {
   border: 2.5px solid var(--gfx-line) !important;
   box-shadow: 0 0.3em 0 var(--gfx-line), inset 0 -0.25em 0 color-mix(in srgb, var(--gfx-line) 10%, transparent) !important;
 }
-${T} .act { border-radius: 999px !important; }
+${T} button.act { border-radius: 999px !important; }
+/* Shop: .act there is only the slot that holds the price button (or the locked note), not a button itself. */
+${T} .sh-buy { border: 2px solid var(--gfx-line) !important; border-radius: 999px !important; padding: .3em 1em !important;
+  background: var(--gfx-accent) !important; color: #fff !important; box-shadow: 0 .18em 0 var(--gfx-line) !important; transition: translate .12s ease; }
+${T} .sh-buy:hover:not([disabled]) { background: color-mix(in srgb, var(--gfx-accent) 82%, #000) !important; }
+${T} .sh-buy:active:not([disabled]) { translate: 0 .14em; box-shadow: 0 .04em 0 var(--gfx-line) !important; }
+${T} .sh-buy[disabled] { background: color-mix(in srgb, var(--gfx-card) 70%, var(--gfx-ink)) !important; color: var(--steel-faint) !important;
+  border-color: color-mix(in srgb, var(--gfx-line) 45%, transparent) !important; box-shadow: none !important; }
+${T} .sh-soon { white-space: normal !important; text-align: center; line-height: 1.25; color: var(--steel-faint) !important; }
 /* The big start buttons: Trickcal's yellow "전투시작!" slab. */
 ${T} .fstart, ${T} [data-into-battle], ${T} .btn-go {
   background: linear-gradient(180deg, #FFDC5E, #FFB81C) !important; color: #3B2610 !important; text-shadow: 0 0.06em 0 #FFF0B0 !important;
