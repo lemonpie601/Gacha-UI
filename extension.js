@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.7 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.8 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -584,8 +584,13 @@ ${T} .gf-stage:has(> .gfx-load-host), ${T} .gf-arena:has(> .gfx-load-host) { pos
 .gfx-mochi .leaf { fill: #7DD87D; stroke: var(--gfx-line); stroke-width: 3.5; }
 /* World creation ("forge") screen: the mascot instead of the spinning emblem. */
 ${T} .forge-center .forge-emblem { display: none; }
-${T} .gfx-forge-mascot { width: calc(var(--f) * 12); height: calc(var(--f) * 12); display: grid; place-items: end center; }
-${T} .gfx-forge-mascot > * { max-width: 100%; max-height: 100%; transform-origin: 50% 100%; animation: gfx-jump 0.9s cubic-bezier(.4,0,.6,1) infinite; filter: ${STICKER}; }
+/* The short screen while the game builds a world or writes a chapter. The SD keeps to a fixed box: the size
+ * has a fallback for the first frame, and the picture is laid inside the box rather than sized by it (a tall
+ * SD otherwise spilled over the whole screen for that moment). */
+${T} .gfx-forge-mascot { position: relative; flex: none; width: calc(var(--f, 10px) * 12); height: calc(var(--f, 10px) * 12); max-width: 40cqmin; max-height: 40cqmin; }
+${T} .gfx-forge-mascot > img { position: absolute; inset: 0; width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important; object-fit: contain; object-position: 50% 100%; }
+${T} .gfx-forge-mascot > svg { position: absolute; left: 11%; bottom: 0; width: 78%; height: auto; }
+${T} .gfx-forge-mascot > * { transform-origin: 50% 100%; animation: gfx-jump 0.9s cubic-bezier(.4,0,.6,1) infinite; filter: ${STICKER}; }
 
 /* ── Battle field (Trickcal Revive manner) ────────────────────────────────────────────────────────
    The game keeps its sides and rows; only where things stand changes. Sides and rows stop being boxes,
@@ -910,6 +915,8 @@ ${T} .root:has(:is([data-chat-close], .hm-pk-wrap)) .gfx-lobby .body { animation
 ${T} [data-screen="events"] :is(.ev-rail-scroll, .ev-pane, .pv-missions, .sv-fights, .sv-box, .sv-grid) { scrollbar-width: none; }
 ${T} [data-screen="events"] :is(.ev-rail-scroll, .ev-pane, .pv-missions, .sv-fights, .sv-box, .sv-grid)::-webkit-scrollbar { display: none; }
 ${T} [data-screen="events"] .pv-track { scrollbar-width: thin; }
+/* Tidewalk: the pawn's hop on a roll stays drawn but no longer counts as overflow of the panel. */
+${T} [data-screen="events"] .bd { overflow: clip; overflow-clip-margin: 2em; }
 ${T} [data-screen="events"], ${T} [data-screen="events"] > .body, ${T} [data-screen="events"] .ev-cols { min-height: 0; min-width: 0; overflow: hidden !important; }
 ${T} [data-screen="events"] .ev-pane.pv { display: grid !important; grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-height: 0; min-width: 0; overflow: hidden !important; padding-bottom: .45em; }
@@ -1581,13 +1588,20 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       if (!W || !nodes.length) return;
       const widths = nodes.map((n) => n.offsetWidth * (Number(getComputedStyle(n).getPropertyValue("--hf")) || 1) * 0.86 / W * 100);
       if (widths.some((w) => !w)) return;
-      const total = widths.reduce((a, b) => a + b, 0);
-      const room = 94;
-      const gap = nodes.length > 1 ? Math.max(-Math.min(...widths) * 0.3, Math.min(3, (room - total) / (nodes.length - 1))) : 0;
-      let x = 50 - (total + gap * (nodes.length - 1)) / 2;
+      // Two groups: the protagonist with those beside them, and the rest. Inside a group neighbours overlap a
+      // little (Trickcal's huddle); between the groups there is air. Tighter when the stage is full.
+      const room = 94, total = widths.reduce((a, b) => a + b, 0);
+      const groupOf = (n) => n.dataset.group || "b";
+      const joins = nodes.slice(1).map((n, i) => groupOf(n) === groupOf(nodes[i]) ? "in" : "between");
+      const inCount = joins.filter((j) => j === "in").length, betweenCount = joins.length - inCount;
+      let overlap = Math.min(...widths) * 0.22, apart = 7;
+      const span = () => total - overlap * inCount + apart * betweenCount;
+      if (span() > room && betweenCount) apart = Math.max(1, apart - (span() - room) / betweenCount);
+      if (span() > room && inCount) overlap = Math.min(Math.min(...widths) * 0.45, overlap + (span() - room) / inCount);
+      let x = 50 - span() / 2;
       nodes.forEach((n, i) => {
         const center = x + widths[i] / 2;
-        x += widths[i] + gap;
+        x += widths[i] + (i < joins.length ? (joins[i] === "in" ? -overlap : apart) : 0);
         n.dataset.x = center.toFixed(2);
         // A newcomer appears where it belongs; only those already standing glide over.
         if (!n.dataset.placed) { n.dataset.placed = "1"; n.style.transition = "none"; requestAnimationFrame(() => { n.style.transition = ""; }); }
@@ -1618,7 +1632,9 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       stage.prepend(layer);
     }
     const prota = protagonistName();
-    const slots = snapshot.slots.slice().sort((a, b) => (b.name === prota) - (a.name === prota));
+    // Left to right: the protagonist, those set to stand by them (주인공 옆), then everyone else.
+    const rank = (n) => (n === prota ? 0 : sdEntry(n).ally ? 1 : 2);
+    const slots = snapshot.slots.slice().sort((a, b) => rank(a.name) - rank(b.name));
     if (layer.getAttribute("data-scene") !== snapshot.sceneKey) {
       // A new place (or scene): the cast that was there steps out under a soft wipe naming where we are now,
       // instead of vanishing in one frame.
@@ -1637,7 +1653,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       layer.replaceChildren();
       layer.setAttribute("data-scene", snapshot.sceneKey);
     }
-    const key = snapshot.sceneKey + "|" + snapshot.mode + "|" + speaker + "|" + slots.map((s) => [s.id, s.name, s.portrait, sdUrl(s.name, s.portrait), sdEntry(s.name).tall || 1].join("~")).join(";");
+    const key = snapshot.sceneKey + "|" + snapshot.mode + "|" + speaker + "|" + slots.map((s) => [s.id, s.name, s.portrait, sdUrl(s.name, s.portrait), sdEntry(s.name).tall || 1, sdEntry(s.name).ally ? 1 : 0].join("~")).join(";");
     if (layer.getAttribute("data-key") === key) return;
     layer.setAttribute("data-key", key);
     vnCast.renderedKey = key;
@@ -1667,6 +1683,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       }
       n.setAttribute("data-name", name);
       n.dataset.i = String(i);
+      n.dataset.group = rank(name) < 2 ? "a" : "b";
       // Where they stand comes from layoutCast; a newcomer starts at its even share until its size is known.
       if (!n.style.left) { n.dataset.x = String(xs[i]); n.style.left = xs[i] + "%"; }
       const im = n.querySelector("img");
@@ -2812,7 +2829,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     const w = world();
     for (const list of root.querySelectorAll("[data-gfx-sd-list]")) {
       const cards = w ? w.cards : [];
-      const keyNow = sdEditing + "/" + cards.map((c) => c.name + ":" + (w.sd[c.name]?.url || "") + ":" + JSON.stringify(w.sd[c.name]?.variants || {}) + ":" + (w.busy.has(c.name) ? 1 : 0)).join("|");
+      const keyNow = sdEditing + "/" + cards.map((c) => c.name + ":" + (w.sd[c.name]?.url || "") + ":" + JSON.stringify(w.sd[c.name]?.variants || {}) + ":" + (w.busy.has(c.name) ? 1 : 0) + ":" + (w.sd[c.name]?.ally ? 1 : 0)).join("|");
       if (list.getAttribute("data-key") === keyNow) continue;
       list.setAttribute("data-key", keyNow);
       list.textContent = "";
@@ -2829,6 +2846,8 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
         chips.append(chip(url ? "다시" : "그리기", () => makeSd(c)));
         if (url) chips.append(chip("지우기", () => removeSd(c.name)));
         chips.append(chip("편집", () => { sdEditing = sdEditing === c.name ? "" : c.name; sdEditKey = ""; paintSettings(); }, { "aria-pressed": String(sdEditing === c.name) }));
+        // Stands with the protagonist in the story line-up (the left group) instead of across from them.
+        if (c.name !== protagonistName()) chips.append(chip("주인공 옆", async () => { await saveSdEntry(c.name, { ally: !w.sd[c.name]?.ally }); paintSettings(); refresh(); }, { "aria-pressed": String(!!w.sd[c.name]?.ally), title: "스토리에서 주인공 쪽에 살짝 겹쳐 섭니다" }));
         const title = el("b", "", c.name);
         if (c.extra) { card.setAttribute("data-extra", ""); title.append(el("small", "gfx-extra-tag", "스토리 등장")); }
         card.append(thumb, title, chips);
