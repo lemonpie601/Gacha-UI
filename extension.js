@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.22 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.23 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -1139,9 +1139,14 @@ ${T} [data-screen="reveal"] .rv-back { background: radial-gradient(color-mix(in 
 .gfx-cap { width: 34cqmin; aspect-ratio: 1; position: relative; z-index: 2; transform-origin: 50% 90%;
   animation: gfx-cap-drop 480ms cubic-bezier(.3,1.5,.5,1) both, gfx-cap-wobble 560ms ease-in-out 500ms 1 both; }
 .gfx-cap svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 1.2cqmin 0 rgba(90,58,36,.35)); }
-.gfx-cap .cap-top { transform-origin: 15% 50%; animation: gfx-cap-open 520ms cubic-bezier(.3,1.4,.5,1) 1080ms both; }
-.gfx-cap .cap-bot { transform-origin: 50% 100%; animation: gfx-cap-sink 520ms ease 1080ms both; }
-.gfx-cap .cap-band { transform-origin: 50% 50%; animation: gfx-cap-pop 360ms ease 1080ms both; }
+.gfx-cap g { transform-box: view-box; }
+/* The seal pops, the flap flips open over the top, the letter rises out glowing, then the envelope sinks away. */
+.gfx-cap .cap-band { transform-origin: 70px 80px; animation: gfx-cap-pop 300ms ease 960ms both; }
+.gfx-cap .cap-top { transform-origin: 70px 40px; animation: gfx-cap-flap 360ms cubic-bezier(.3,1.4,.5,1) 1020ms both; }
+.gfx-cap .cap-letter { animation: gfx-cap-rise 420ms cubic-bezier(.3,1.5,.5,1) 1180ms both; filter: drop-shadow(0 0 4px #fff); }
+.gfx-cap :is(.cap-bot, .cap-front) { transform-origin: 70px 110px; animation: gfx-cap-sink 360ms ease 1300ms both; }
+@keyframes gfx-cap-flap { to { transform: scaleY(-1); } }
+@keyframes gfx-cap-rise { to { transform: translateY(-46px) scale(1.12); } }
 @keyframes gfx-cap-pop { 40% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(.2); opacity: 0; } }
 @keyframes gfx-cap-drop { 0% { transform: translateY(-120cqh) rotate(-20deg); } 70% { transform: translateY(0) scale(1.08, .9); } 100% { transform: translateY(0) scale(1); } }
 @keyframes gfx-cap-wobble { 0%, 100% { rotate: 0deg; } 20% { rotate: -14deg; } 45% { rotate: 12deg; } 70% { rotate: -7deg; } 85% { rotate: 4deg; } }
@@ -1643,11 +1648,17 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
    * best card (5★ gold, 4★ violet, 3★ sky) with rays and confetti; then it clears and the cards show. A tap
    * anywhere skips straight to the cards. Played once per reveal screen. */
   const CAPSULE_TOP = { 5: "#FFC93C", 4: "#B48CF0", 3: "#7EC8F2" };
-  const CAPSULE_SVG = (col) => '<svg viewBox="0 0 120 120" aria-hidden="true">'
-    + '<g class="cap-top"><path d="M10 60 A50 50 0 0 1 110 60 Z" style="fill:' + col + '" stroke="#5A3A24" stroke-width="5" stroke-linejoin="round"/>'
-    + '<ellipse cx="42" cy="34" rx="12" ry="7" fill="#fff" opacity=".65"/></g>'
-    + '<g class="cap-bot"><path d="M10 60 A50 50 0 0 0 110 60 Z" fill="#FFFDF5" stroke="#5A3A24" stroke-width="5" stroke-linejoin="round"/></g>'
-    + '<g class="cap-band"><rect x="8" y="55" width="104" height="10" rx="5" fill="#5A3A24"/><circle cx="60" cy="60" r="12" fill="#FFFDF5" stroke="#5A3A24" stroke-width="5"/></g></svg>';
+  // A recruitment letter: the flap carries the best card's colour, a heart wax seal holds it shut.
+  const CAPSULE_SVG = (col) => '<svg viewBox="0 0 140 120" aria-hidden="true">'
+    + '<g class="cap-bot"><rect x="10" y="40" width="120" height="70" rx="10" fill="#F4E2BC" stroke="#5A3A24" stroke-width="5" stroke-linejoin="round"/></g>'
+    + '<g class="cap-letter"><rect x="24" y="46" width="92" height="58" rx="6" fill="#FFFDF5" stroke="#5A3A24" stroke-width="4"/>'
+    + '<path d="M36 62 H104 M36 74 H96 M36 86 H84" stroke="#C9A97A" stroke-width="4" stroke-linecap="round"/>'
+    + '<path d="M70 52 l3.2 6.4 7 .9 -5.1 4.9 1.3 7 -6.4-3.4 -6.4 3.4 1.3-7 -5.1-4.9 7-.9z" style="fill:' + col + '" stroke="#5A3A24" stroke-width="2"/></g>'
+    + '<g class="cap-front"><path d="M10 50 L70 86 L130 50 V100 Q130 110 120 110 H20 Q10 110 10 100 Z" fill="#FFEFCF" stroke="#5A3A24" stroke-width="5" stroke-linejoin="round"/></g>'
+    + '<g class="cap-top"><path d="M10 50 Q10 40 20 40 H120 Q130 40 130 50 L70 88 Z" style="fill:' + col + '" stroke="#5A3A24" stroke-width="5" stroke-linejoin="round"/>'
+    + '<path d="M28 48 L70 74" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".55"/></g>'
+    + '<g class="cap-band"><circle cx="70" cy="80" r="12" fill="#E8546B" stroke="#5A3A24" stroke-width="4"/>'
+    + '<path d="M70 86 c-6-4-8-7-8-10 a4 4 0 0 1 8-1 a4 4 0 0 1 8 1 c0 3-2 6-8 10z" fill="#FFD3DC"/></g></svg>';
   function paintSummon(root, enabled) {
     for (const screen of root.querySelectorAll('[data-screen="reveal"]')) {
       if (!enabled || screen.hasAttribute("data-gfx-summon")) continue;
