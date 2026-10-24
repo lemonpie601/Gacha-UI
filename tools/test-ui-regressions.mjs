@@ -15,8 +15,8 @@ has(/MARINARA\?\.storage/, "현재 Marinara 전체 페이지 확장의 전용 �
 has(/MARINARA\?\.extensionId/, "현재 Marinara 런타임의 확장 ID를 인식해야 합니다.");
 has(/function pendingMatches\(/, "성공한 요청이 더 최신인 보류 저장을 지우면 안 됩니다.");
 has(/const old = w\.sd\[card\.name\] \|\| \{\}/, "기존 SD 편집값을 먼저 읽어야 합니다.");
-has(/:\s*\{ \.\.\.old, url: saved\.url, at: Date\.now\(\) \}/,
-  "SD를 다시 만들 때 대사와 편집값을 보존해야 합니다.");
+has(/:\s*\{ \.\.\.old, url: saved\.url, at: Date\.now\(\), history: prevOf\(old\) \}/,
+  "SD를 다시 만들 때 대사와 편집값을 보존하고, 이전 SD는 보관함에 남겨야 합니다.");
 has(/variants:\s*\{ \.\.\.\(old\.variants \|\| \{\}\), \[variantKey\]/,
   "의상별 SD를 기존 데이터와 호환되게 저장해야 합니다.");
 

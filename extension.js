@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.20 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.21 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -960,6 +960,14 @@ ${T} button.act.start { display: inline-flex !important; flex-direction: column;
   background: linear-gradient(180deg, var(--gfx-pick), color-mix(in srgb, var(--gfx-pick) 65%, var(--gfx-accent))) !important; color: var(--gfx-line) !important; padding: .35em 1.1em !important; }
 ${T} button.act.start > span { color: var(--gfx-line) !important; font-size: 1em; }
 ${T} button.act.start > small { color: color-mix(in srgb, var(--gfx-line) 72%, transparent) !important; font-size: .72em; }
+/* SD vault in the editor: small sticker tiles, the one in use outlined. */
+.gfx-sd-vault { display: flex; flex-wrap: wrap; gap: .45em; margin: .2em 0 .5em; }
+.gfx-sd-pick { position: relative; width: calc(var(--f, 10px) * 5); height: calc(var(--f, 10px) * 6.6); padding: 3px; border: 2px solid var(--gfx-line, #6B4528); border-radius: 12px;
+  background: var(--gfx-card, #FFF8E7); box-shadow: 0 .15em 0 var(--gfx-line, #6B4528); cursor: pointer; }
+.gfx-sd-pick[aria-pressed="true"] { outline: 3px solid var(--gfx-accent, #F2557F); outline-offset: 1px; cursor: default; }
+.gfx-sd-pick img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; display: block; }
+.gfx-sd-pick .x { position: absolute; top: -.5em; right: -.5em; width: 1.4em; height: 1.4em; display: grid; place-items: center; border-radius: 50%;
+  background: var(--gfx-card, #FFF8E7); border: 2px solid var(--gfx-line, #6B4528); font-size: .8em; line-height: 1; }
 /* No scrollbars anywhere under 말랑: lists still scroll with the wheel, a finger or a drag. */
 ${T} .gf-arena, ${T} .gf-arena * { scrollbar-width: none; }
 ${T} .gf-arena::-webkit-scrollbar, ${T} .gf-arena *::-webkit-scrollbar { display: none; }
@@ -1274,6 +1282,24 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       appearance = String(hit?.prompt || "").replace(/^[^.]*?Canonical appearance:\s*/i, "").replace(/\s+/g, " ").trim().slice(0, 900);
     } catch {}
     return { name: card.name, appearance };
+  }
+  // An outfit's SD entry (older saves kept a bare URL string).
+  const sdVariant = (e, key) => { const v = e?.variants?.[key]; return typeof v === "string" ? { url: v } : v || null; };
+  // The SD the lobby shows: the outfit picked for the lobby, else the base look.
+  const lobbySd = (name) => { const e = sdEntry(name); return (e.lobby && sdVariant(e, e.lobby)?.url) || e.url || ""; };
+  /* Switch to a drawing from the vault: the one in use goes back into the vault. key "" is the base look. */
+  async function useSd(name, key, url) {
+    const e = sdEntry(name), cur = key ? sdVariant(e, key) || {} : e;
+    const history = [{ url: cur.url, at: cur.at || 0 }, ...(cur.history || [])].filter((h) => h.url && h.url !== url).slice(0, 8);
+    const ent = { url, at: Date.now(), history };
+    await saveSdEntry(name, key ? { variants: { ...(e.variants || {}), [key]: ent } } : ent);
+    paintSettings(); refreshSprites(); refresh();
+  }
+  async function dropSd(name, key, url) {
+    const e = sdEntry(name), cur = key ? sdVariant(e, key) || {} : e;
+    const history = (cur.history || []).filter((h) => h.url !== url);
+    await saveSdEntry(name, key ? { variants: { ...(e.variants || {}), [key]: { ...cur, history } } } : { history });
+    paintSettings();
   }
   const sdUrl = (name, portrait = "") => {
     const w = world(), e = w && name && w.sd[name];
@@ -2240,7 +2266,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       const n = list.length, back = n > 2 && i % 2 === 1;
       const auto = autoFloorPoint(i, n, back);
       const placed = clampToFloor(Number.isFinite(e.x) ? e.x : auto.x, Number.isFinite(e.y) ? e.y : auto.y);
-      return { name: c.name, url: sdUrl(c.name), x: placed.x, y: placed.y, s: Number.isFinite(e.s) ? e.s : 1 };
+      return { name: c.name, url: lobbySd(c.name) || sdUrl(c.name), x: placed.x, y: placed.y, s: Number.isFinite(e.s) ? e.s : 1 };
     });
   }
   function setHome(name, patch) {
@@ -3020,7 +3046,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     for (const box of root.querySelectorAll("[data-gfx-sd-edit]")) {
       const e = c ? sdEntry(c.name) : {};
       if (c) loadUnitDetails(c, w);
-      const key = c ? [c.name, e.url || "", JSON.stringify(e.variants || {}), Array.from(w.outfits.get(c.name) || []).join(","), JSON.stringify(e.cheeks || []), cheekR(c.name), faceOf(c.name), e.tall || 1, linesRev].join("|") : "";
+      const key = c ? [c.name, e.url || "", JSON.stringify(e.variants || {}), JSON.stringify(e.history || []), e.lobby || "", Array.from(w.outfits.get(c.name) || []).join(","), JSON.stringify(e.cheeks || []), cheekR(c.name), faceOf(c.name), e.tall || 1, linesRev].join("|") : "";
       if (box.getAttribute("data-key") === key) continue;
       box._gfxMarkerRO?.disconnect();
       box._gfxMarkerRO = null;
@@ -3096,13 +3122,50 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       }
       side.append(tall);
       const outfits = Array.from(w.outfits.get(c.name) || []);
+      const outfitName = (key, i) => w.details.get(c.name)?.outfits?.find((o) => pathOf(o.url) === key)?.name || "의상 " + (i + 1);
+      // The SD vault: the drawing in use and earlier ones, for the base look and each outfit. Tap one to use it.
+      const vault = (label, key) => {
+        const ent = key ? sdVariant(e, key) : e;
+        if (!ent?.url) return;
+        const urls = [ent.url, ...(ent.history || []).map((h) => h.url)].filter((u, i, a) => u && a.indexOf(u) === i);
+        const row = el("div", "gfx-sd-vault");
+        urls.forEach((u, i) => {
+          const b = el("button", "gfx-sd-pick");
+          b.type = "button";
+          b.setAttribute("aria-pressed", String(i === 0));
+          b.title = i === 0 ? "지금 쓰는 SD" : "이 SD로 바꾸기";
+          const im = el("img");
+          im.src = u; im.alt = ""; im.loading = "lazy"; im.draggable = false;
+          b.append(im);
+          on(b, "click", (ev) => { ev.stopPropagation(); if (i) useSd(c.name, key, u); });
+          if (i) {
+            const x = el("span", "x", "×");
+            x.title = "보관함에서 빼기";
+            on(x, "click", (ev) => { ev.stopPropagation(); dropSd(c.name, key, u); });
+            b.append(x);
+          }
+          row.append(b);
+        });
+        side.append(hint(label + (urls.length > 1 ? " — 눌러서 바꾸기" : ""), ""), row);
+      };
+      vault("SD 보관함 · 기본", "");
+      outfits.forEach((key, i) => vault("SD 보관함 · " + outfitName(key, i), key));
+      const madeOutfits = outfits.filter((key) => sdVariant(e, key)?.url);
+      if (madeOutfits.length && e.url) {
+        side.append(hint("로비에서 입을 옷", ""));
+        const lob = el("div", "st-chips");
+        const pick = (key, label) => { const b = chip(label, () => saveSdEntry(c.name, { lobby: key }).then(() => { paintSettings(); refresh(); })); b.setAttribute("aria-pressed", String((e.lobby || "") === key)); lob.append(b); };
+        pick("", "기본");
+        madeOutfits.forEach((key) => pick(key, outfitName(key, outfits.indexOf(key))));
+        side.append(lob);
+      }
       if (outfits.length) {
         side.append(hint("의상별 SD", ""));
         const variants = el("div", "st-chips");
         outfits.forEach((variantKey, i) => {
           const exists = !!e.variants?.[variantKey];
           const outfit = w.details.get(c.name)?.outfits?.find((o) => pathOf(o.url) === variantKey);
-          variants.append(chip((outfit?.name || "의상 " + (i + 1)) + (exists ? " 다시" : " 만들기"), () => makeSd(c, variantKey)));
+          variants.append(chip((outfit?.name || "의상 " + (i + 1)) + (exists ? " 다시 그리기" : " 만들기"), () => makeSd(c, variantKey)));
           if (exists) variants.append(chip("의상 " + (i + 1) + " 지우기", () => removeSdVariant(c.name, variantKey)));
         });
         side.append(variants);
@@ -3243,9 +3306,12 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       const saved = await up.json().catch(() => null);
       if (!up.ok || !saved || !saved.url) throw Error((saved && saved.error) || "갤러리 저장 실패 (HTTP " + up.status + ")");
       const old = w.sd[card.name] || {};
+      // The drawing it replaces goes into the vault (newest first, 8 at most); lines and cheeks stay as they were.
+      const prevOf = (ent) => [ent?.url ? { url: ent.url, at: ent.at || 0 } : null, ...(ent?.history || [])].filter((h) => h && h.url && h.url !== saved.url).slice(0, 8);
+      const oldVariant = variantKey ? sdVariant(old, variantKey) : null;
       const next = variantKey
-        ? { ...old, variants: { ...(old.variants || {}), [variantKey]: { url: saved.url, at: Date.now() } } }
-        : { ...old, url: saved.url, at: Date.now() };
+        ? { ...old, variants: { ...(old.variants || {}), [variantKey]: { url: saved.url, at: Date.now(), history: prevOf(oldVariant) } } }
+        : { ...old, url: saved.url, at: Date.now(), history: prevOf(old) };
       w.sd = { ...w.sd, [card.name]: next };
       if (!(await storePatch({ ["sd:" + w.id]: w.sd }))) w.note = "그림은 갤러리에 저장했고 이 브라우저에 보관했습니다. 서버 기록은 다시 시도합니다 (" + lastStoreError + ").";
     } catch (e) {
