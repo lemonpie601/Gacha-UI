@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.6.4 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.6.5 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -932,6 +932,12 @@ img.baked { filter: none !important; }
       bakedMap.set(url, "failed");
     }
   }
+  // Which character an SD picture belongs to (for its 키).
+  function refreshSprites() {
+    for (const img of gameRoot()?.querySelectorAll("img[data-raw]") || []) setSprite(img, img.dataset.raw, img.style.scale === "-1 1");
+    for (const box of gameRoot()?.querySelectorAll(".gfx-lobby .who") || []) { const i = box.querySelector("img"); if (i) box.style.setProperty("--hf", i.style.getPropertyValue("--hf") || "1"); }
+  }
+  function nameOfUrl(url) { const w = world(); if (!w || !url) return ""; for (const [n, e] of Object.entries(w.sd)) if (e && e.url === url) return n; return ""; }
   function setSprite(img, url, flip) {
     const b = url ? bakeInfo(url) : null;
     const src = b ? b.url : url;
@@ -939,7 +945,8 @@ img.baked { filter: none !important; }
     img.classList.toggle("baked", !!b);
     for (const k of ["mx", "ox", "my", "oy", "hf"]) { if (b) img.dataset[k] = String(b[k]); else delete img.dataset[k]; }
     // The character's own height: rules size sprites as a share of their box times --hf.
-    const hf = b ? String(b.hf) : "1";
+    const tall = Number(sdEntry(nameOfUrl(url)).tall) || 1;
+    const hf = String(+((b ? b.hf : 1) * tall).toFixed(3));
     if (img.style.getPropertyValue("--hf") !== hf) img.style.setProperty("--hf", hf);
     if (b && img.parentElement?.closest) { const box = img.closest(".gfx-lobby .who, .gfx-vn-cast .who"); if (box && box.style.getPropertyValue("--hf") !== hf) box.style.setProperty("--hf", hf); }
     if (img.dataset.raw !== url) img.dataset.raw = url;
@@ -1512,7 +1519,7 @@ img.baked { filter: none !important; }
     const flip = el("div", "flip"), body = el("div", "body"), img = el("img");
     const fit = () => {
       if (img.naturalWidth && img.naturalHeight) who.style.aspectRatio = img.naturalWidth + " / " + img.naturalHeight;
-      who.style.setProperty("--hf", img.dataset.hf || "1");
+      who.style.setProperty("--hf", img.style.getPropertyValue("--hf") || "1");
     };
     img.addEventListener("load", fit);
     setSprite(img, c.url, false);
@@ -1981,7 +1988,7 @@ img.baked { filter: none !important; }
     const c = w && w.cards.find((x) => x.name === sdEditing);
     for (const box of root.querySelectorAll("[data-gfx-sd-edit]")) {
       const e = c ? sdEntry(c.name) : {};
-      const key = c ? [c.name, e.url || "", JSON.stringify(e.cheeks || []), cheekR(c.name), faceOf(c.name), linesRev].join("|") : "";
+      const key = c ? [c.name, e.url || "", JSON.stringify(e.cheeks || []), cheekR(c.name), faceOf(c.name), e.tall || 1, linesRev].join("|") : "";
       if (box.getAttribute("data-key") === key) continue;
       box.setAttribute("data-key", key);
       box.textContent = "";
@@ -2041,6 +2048,14 @@ img.baked { filter: none !important; }
         face.append(b);
       }
       side.append(face);
+      side.append(hint("키 — 그림마다 캐릭터가 그림 높이를 가득 채워서, 어린 캐릭터는 여기서 작게 하면 다른 캐릭터와 비율이 맞습니다.", ""));
+      const tall = el("div", "st-chips");
+      for (const [t, label] of [[0.8, "작게"], [0.9, "조금 작게"], [1, "보통"], [1.15, "크게"]]) {
+        const b = chip(label, () => saveSdEntry(c.name, { tall: t }).then(() => { paintSettings(); refreshSprites(); }));
+        b.setAttribute("aria-pressed", String(Math.abs((Number(e.tall) || 1) - t) < 0.001));
+        tall.append(b);
+      }
+      side.append(tall);
       const field = (label, value, save) => {
         const lab = el("label", "gfx-field");
         lab.append(el("span", "", label));
