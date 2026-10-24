@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.2 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.4 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -845,6 +845,8 @@ img.baked { filter: none !important; }
   background: radial-gradient(80% 60% at 50% 80%, color-mix(in srgb, var(--coral) 18%, transparent), transparent 70%), var(--ink); }
 .gfx-sd-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .gfx-sd-thumb img.portrait { width: 100%; height: 100%; object-fit: cover; opacity: 0.35; filter: grayscale(0.6); }
+.gfx-sd-card .gfx-extra-tag { display: block; margin-top: .15em; font-size: .78em; color: var(--steel-faint); }
+.gfx-sd-card[data-extra] { border-style: dashed; }
 .gfx-sd-card b { font-family: var(--display); font-weight: 400; font-size: var(--t-xs, 12px); text-align: center; line-height: 1.2; }
 .gfx-sd-card .st-chips { justify-content: center; }
 .gfx-sd-card .st-chip { font-size: var(--t-tiny, 11px); padding: 0.2em 0.7em; }
@@ -1009,6 +1011,9 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       const [ro, stored] = await Promise.all([gf("/roster", { runId: w.id }), storeGet()]);
       w.cards = (ro.cards || []).filter((c) => c && c.kind === "character" && c.name);
       w.byPortrait = new Map(w.cards.filter((c) => c.portrait).map((c) => [pathOf(c.portrait), c.name]));
+      // Characters the story uses that are not owned yet (banner characters, story-only cast): listed as extras.
+      addExtras(w, await bannerCast(w.id));
+      for (const name of Object.keys(stored["sd:" + w.id] || {})) addExtras(w, [{ name }]);
       const pending = readPending();
       const sd = stored["sd:" + w.id], waiting = pending["sd:" + w.id];
       w.sd = { ...(sd && typeof sd === "object" ? sd : {}), ...(waiting && typeof waiting === "object" ? waiting : {}) };
@@ -1031,6 +1036,41 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     refresh();
     return w;
   }
+  /* An extra is a character met in the story without a roster card: a banner character not pulled yet, or a
+   * story-only cast member. It can have an SD, lines and cheeks like anyone, appears in the story and the SD
+   * list, and stays out of the lobby (that is the player's own team). */
+  function addExtras(w, list) {
+    let added = false;
+    for (const x of list || []) {
+      const name = String(x?.name || "").trim();
+      if (!name || w.cards.some((c) => c.name === name)) continue;
+      w.cards.push({ name, id: x.id || "", portrait: x.portrait || x.art || "", kind: "character", extra: true });
+      if (x.portrait || x.art) w.byPortrait.set(pathOf(x.portrait || x.art), name);
+      added = true;
+    }
+    return added;
+  }
+  async function bannerCast(runId) {
+    try {
+      const first = await gf("/summon-banner", { runId });
+      const ids = (first.banners || []).filter((b) => !b.kind || b.kind === "character" || /char/.test(b.id || "")).map((b) => b.id).filter(Boolean);
+      const all = await Promise.all(ids.map((id) => gf("/summon-banner", { runId, bannerId: id }).catch(() => null)));
+      const units = [first, ...all].flatMap((r) => [...(r?.banner?.featured || []), ...(r?.banner?.pool || []), ...(r?.banner?.units || [])]);
+      return units.filter((u) => u && u.kind === "character" && u.name).map((u) => ({ name: u.name, id: u.id, portrait: u.portrait }));
+    } catch { return []; }
+  }
+  // A character's details: the game's unit when it has one, else what its portrait was drawn from.
+  async function unitOf(card, w = world()) {
+    if (card.id) { try { return (await gf("/unit", { runId: w.id, unitId: card.id })).unit || {}; } catch {} }
+    let appearance = "";
+    try {
+      const list = await fetch("/api/global-gallery", { credentials: "same-origin" }).then((r) => r.json());
+      const p = card.portrait && pathOf(card.portrait).split("/").pop();
+      const hit = p && (Array.isArray(list) ? list : []).find((g) => String(g.filePath || "").endsWith(p) || String(g.url || "").endsWith(p));
+      appearance = String(hit?.prompt || "").replace(/^[^.]*?Canonical appearance:\s*/i, "").replace(/\s+/g, " ").trim().slice(0, 900);
+    } catch {}
+    return { name: card.name, appearance };
+  }
   const sdUrl = (name, portrait = "") => {
     const w = world(), e = w && name && w.sd[name];
     const activePortrait = portrait || w?.cards.find((c) => c.name === name)?.portrait || "";
@@ -1046,8 +1086,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     if (!w || w.details.has(card.name) || w.detailsLoading.has(card.name)) return;
     w.detailsLoading.add(card.name);
     try {
-      const result = await gf("/unit", { runId: w.id, unitId: card.id });
-      const unit = result.unit || {};
+      const unit = await unitOf(card, w);
       w.details.set(card.name, unit);
       const variants = w.outfits.get(card.name) || new Set();
       for (const outfit of unit.outfits || []) {
@@ -1404,23 +1443,29 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       const partial = cast.filter((c) => normalize(c.name).split(/\s+/).includes(key));
       return partial.length === 1 ? partial[0] : null;
     };
-    const present = new Map();
+    // Everyone keeps the place they took on entering: speaking marks them recent but does not reorder the stage
+    // (moving each speaker to the end swapped two characters on every line). Past the stage's limit the one who
+    // has been quiet longest steps off.
+    const present = new Map(), spoke = new Map();
     let place = "";
     for (let i = 0; i <= Math.min(at, segments.length - 1); i++) {
       const segment = segments[i] || {};
-      if (segment.place && segment.place !== place) { present.clear(); place = segment.place; }
+      if (segment.place && segment.place !== place) { present.clear(); spoke.clear(); place = segment.place; }
       const text = String(segment.text || "");
       if (!segment.speaker) for (const actor of cast) {
         const start = text.indexOf(actor.name);
         if (start < 0) continue;
         const action = text.slice(start + actor.name.length, start + actor.name.length + 65).split(/[.!?。\n]/)[0];
         if (/(?:퇴장했|퇴장한|나갔|떠났|자리를 떠|사라졌|밖으로 나|물러났|walked away|left the room|exited|departed)/i.test(action)) present.delete(actor.name);
-        else if (/(?:들어왔|들어섰|다가왔|나타났|합류했|entered|arrived|joined)/i.test(action)) present.set(actor.name, actor);
+        else if (/(?:들어왔|들어섰|다가왔|나타났|합류했|entered|arrived|joined)/i.test(action)) { if (!present.has(actor.name)) present.set(actor.name, actor); spoke.set(actor.name, i); }
       }
       const actor = find(segment.speaker);
-      if (actor) { present.delete(actor.name); present.set(actor.name, actor); }
+      if (actor) { if (!present.has(actor.name)) present.set(actor.name, actor); spoke.set(actor.name, i); }
     }
-    return Array.from(present.values()).slice(-MAX_STORY_CAST);
+    const all = Array.from(present.values());
+    if (all.length <= MAX_STORY_CAST) return all;
+    const keep = new Set(all.slice().sort((a, b) => (spoke.get(b.name) ?? -1) - (spoke.get(a.name) ?? -1)).slice(0, MAX_STORY_CAST).map((c) => c.name));
+    return all.filter((c) => keep.has(c.name));
   }
   function storySnapshot(root, speaker) {
     const vn = root.querySelector(".vn");
@@ -1436,6 +1481,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     const mode = choiceActive ? "choice" : cgActive ? "cg" : "dialogue";
     const slots = [];
     const h = host(), cast = Array.isArray(h?._beatCast) ? h._beatCast : [];
+    { const w = world(); if (w && w.state === "ready" && addExtras(w, cast.filter((c) => !c.prota))) setTimeout(() => paintSettings(), 0); }
     const segments = Array.isArray(h?._beat) ? h._beat : [];
     if (mode === "dialogue" && segments.length && cast.length) {
       const count = (vn.querySelector(".vn-count")?.textContent || "").match(/\d+/);
@@ -1860,7 +1906,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     w.note = "캐릭터 대사를 쓰는 중입니다…";
     paintSettings();
     try {
-      const units = await Promise.all(targets.map((c) => gf("/unit", { runId: w.id, unitId: c.id }).then((u) => u.unit || {}).catch(() => ({}))));
+      const units = await Promise.all(targets.map((c) => unitOf(c, w).catch(() => ({}))));
       const cut = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
       const profiles = targets.map((c, i) => "- " + c.name + " (" + (units[i].role || c.role || "") + ")\n  성격: " + cut(units[i].personality, 400) + "\n  설정: " + cut(units[i].description, 400)).join("\n");
       const system = "너는 트릭컬 리바이브 같은 귀엽고 유쾌한 모바일 수집형 게임의 로비 대사 작가다. 캐릭터마다 성격과 말투를 살려, 로비에서 플레이어가 캐릭터를 눌렀을 때 하는 짧은 대사 3개와, 볼을 꼬집혀 쭉 늘어났을 때의 반응 1개를 한국어로 쓴다. 각 대사는 25자 이내, 이모지·따옴표 없이, 서로 다른 내용으로. 반드시 JSON 하나만 출력한다: {\"캐릭터 이름\": {\"lines\": [\"대사1\", \"대사2\", \"대사3\"], \"pinch\": \"반응\"}}";
@@ -1930,7 +1976,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     const w = world();
     if (!w) return [];
     const mine = prefs.home[w.id] || {};
-    const list = w.cards.filter((c) => sdUrl(c.name) && (mine[c.name] ? mine[c.name].on : true));
+    const list = w.cards.filter((c) => !c.extra && sdUrl(c.name) && (mine[c.name] ? mine[c.name].on : true));
     return list.map((c, i) => {
       const e = mine[c.name] || {};
       // Two rows: the front row low and large, the back row higher up between them.
@@ -2268,7 +2314,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       // Who stands in the lobby: every character with an SD, pressed ones are out.
       const w = world(), mine = (w && prefs.home[w.id]) || {};
       const cast = el("div", "gfx-lobby-cast");
-      for (const c of w ? w.cards.filter((x) => sdUrl(x.name)) : []) {
+      for (const c of w ? w.cards.filter((x) => !x.extra && sdUrl(x.name)) : []) {
         const shown = mine[c.name] ? mine[c.name].on : true;
         const b = btn((shown ? "✓ " : "") + c.name, () => { setHome(c.name, { on: !shown }); savePrefs(); refresh(); });
         b.setAttribute("aria-pressed", String(shown));
@@ -2338,13 +2384,13 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     farm: (h) => h._farmState === "loading", roster: (h) => h._rosterState === "loading",
     inventory: (h) => h._inventoryState === "loading", formation: (h) => h._formationState === "loading",
   };
-  // Returns false, "heavy" (boot, entering a battle, writing a story beat) or "light" (a menu fetching its list).
-  const HEAVY_VIEWS = new Set(["combat", "beat"]);
+  // Returns false, "heavy" (boot, writing a story beat), "battle" (entering a battle) or "light" (a menu fetching its list).
+  const HEAVY_VIEWS = new Set(["beat"]);
   function loadingNow(h) {
     if (!h || !h.shadowRoot) return false;
     if (h._boot === "idle" || h._boot === "loading") return "heavy";
     const test = LOADING_BY_VIEW[h._hudView];
-    try { return test && test(h) ? (HEAVY_VIEWS.has(h._hudView) ? "heavy" : "light") : false; } catch { return false; }
+    try { return test && test(h) ? (h._hudView === "combat" ? "battle" : HEAVY_VIEWS.has(h._hudView) ? "heavy" : "light") : false; } catch { return false; }
   }
   let load = null; // { node, since, progress, tipAt, shownAt, ending }
   function makeLoad() {
@@ -2403,10 +2449,12 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
   }
   /* A screen change (chapter list → chapter) loads in short bursts, and the game redraws its stage between them.
    * The screen used to open on each burst and replay its fade-in each time the redraw re-attached it — a blink
-   * every few frames. Now: a menu's own short fetch gets the screen only past 1s (boot, battle and story past
-   * 0.35s); a gap under 0.45s between bursts counts as the same load; the fade-in plays once. */
+   * every few frames. Now: a menu's own short fetch gets the screen only past 1s (boot and story past 0.35s);
+   * a gap under 0.45s between bursts counts as the same load; the fade-in plays once.
+   * Entering a battle usually takes about a second, so the screen used to pop in and straight out again. A battle
+   * gets the screen only past 1.4s, and once shown it stays at least 0.9s. */
   let loadingSince = 0, lastWantAt = 0;
-  const LOAD_AFTER = { heavy: 350, light: 1000 }, LOAD_GAP = 450;
+  const LOAD_AFTER = { heavy: 350, battle: 1400, light: 1000 }, LOAD_GAP = 450, LOAD_MIN = 900;
   function tickLoading() {
     if (disposed) return;
     const h = host();
@@ -2430,7 +2478,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     // The fade-in once: re-attaching after a redraw must not replay it.
     if (!load.node.hasAttribute("data-shown") && now - load.shownAt > 240) load.node.setAttribute("data-shown", "");
     // A state the game never clears (an error it shows on its own screen) must not hide that screen: 25s at most.
-    if (!load.ending && ((!want && now - load.shownAt > 450) || now - load.shownAt > 25000)) load.ending = now;
+    if (!load.ending && ((!want && now - load.shownAt > LOAD_MIN) || now - load.shownAt > 25000)) load.ending = now;
     if (load.ending) {
       load.progress = Math.min(100, load.progress + 30);
       if (load.progress >= 100 && now - load.ending > 120) {
@@ -2677,7 +2725,9 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
         chips.append(chip(url ? "다시" : "그리기", () => makeSd(c)));
         if (url) chips.append(chip("지우기", () => removeSd(c.name)));
         chips.append(chip("편집", () => { sdEditing = sdEditing === c.name ? "" : c.name; sdEditKey = ""; paintSettings(); }, { "aria-pressed": String(sdEditing === c.name) }));
-        card.append(thumb, el("b", "", c.name), chips);
+        const title = el("b", "", c.name);
+        if (c.extra) { card.setAttribute("data-extra", ""); title.append(el("small", "gfx-extra-tag", "스토리 등장")); }
+        card.append(thumb, title, chips);
         list.append(card);
       }
     }
@@ -2877,7 +2927,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
       if (disposed) return;
       w.note = card.name + " 그리는 중…";
       paintSettings();
-      const u = await gf("/unit", { runId: w.id, unitId: card.id });
+      const u = { unit: await unitOf(card, w) };
       const outfit = variantKey && u.unit?.outfits?.find((o) => o.url && pathOf(o.url) === pathOf(variantKey));
       if (variantKey && !outfit) throw Error("해당 의상 정보를 찾을 수 없습니다. SD 편집을 다시 열어 주세요.");
       const appearance = String(outfit?.prompt || [u.unit?.appearance, outfit?.outfitLine, ...(outfit?.outfitTags || [])].filter(Boolean).join(", ")).trim();
@@ -2929,7 +2979,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
         .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
       if (!ours.length) { if (!quiet) w.note = "갤러리에서 SD를 찾지 못했습니다."; return; }
       const want = w.cards.filter((c) => !w.sd[c.name]?.url);
-      const units = await Promise.all(want.map((c) => gf("/unit", { runId: w.id, unitId: c.id }).then((u) => u.unit || {}).catch(() => ({}))));
+      const units = await Promise.all(want.map((c) => unitOf(c, w).catch(() => ({}))));
       const found = {};
       want.forEach((c, i) => {
         const look = String(units[i].appearance || "").replace(/\s+/g, " ").trim().slice(0, 90);

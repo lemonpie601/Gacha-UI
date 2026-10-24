@@ -22,4 +22,8 @@ assert.deepEqual(names([{ speaker: "령" }, { text: "령은 나가지 말라고 
 assert.deepEqual(names(cast.map((c) => ({ speaker: c.name }))), ["경운", "백우", "단서"]);
 assert.deepEqual(names([{ speaker: "령" }, { speaker: "경운" }], 0), ["령"]);
 assert.deepEqual(names([{ speaker: "you" }]), ["령"]);
-console.log("story presence behavior: 10 cases passed");
+// Speaking again keeps a character in the place it already has (no swapping each line).
+assert.deepEqual(names([{ speaker: "경운", place: "장터" }, { speaker: "백우" }, { speaker: "경운" }, { speaker: "백우" }]), ["경운", "백우"]);
+// Past three, the one quiet longest steps off and the rest keep their order.
+assert.deepEqual(names([{ speaker: "경운", place: "장터" }, { speaker: "백우" }, { speaker: "단서" }, { speaker: "경운" }, { speaker: "령" }]), ["경운", "단서", "령"]);
+console.log("story presence behavior: 12 cases passed");
