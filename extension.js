@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.6 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.7 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -503,6 +503,9 @@ ${H("[data-gfx-motion]")} .cbt.hit[data-gfx-sd] > img.gfx-sd { animation: gfx-sq
 /* ── Loading screen ────────────────────────────────────────────────────────────────────────────── */
 .gfx-load {
   position: absolute; inset: 0; z-index: 2147483000; overflow: hidden; pointer-events: auto;
+  /* The size unit from the first frame (the script refines it once it has measured the screen). Without it the
+   * SD was drawn at its full picture size until the next measure — a giant face across the whole screen. */
+  --u: max(5px, min(1.6cqh, 0.9cqw));
   font-family: "Jua", "Malgun Gothic", system-ui, sans-serif; color: var(--gfx-text, #5A3A24);
   --gfx-ink: ${DEFAULT_COLORS.ink}; --gfx-card: ${DEFAULT_COLORS.card}; --gfx-text: ${DEFAULT_COLORS.text};
   --gfx-line: ${DEFAULT_COLORS.line}; --gfx-accent: ${DEFAULT_COLORS.accent}; --gfx-pick: ${DEFAULT_COLORS.pick};
@@ -514,7 +517,7 @@ ${H("[data-gfx-motion]")} .cbt.hit[data-gfx-sd] > img.gfx-sd { animation: gfx-sq
     linear-gradient(160deg, var(--gfx-sky1), color-mix(in srgb, var(--gfx-sky1) 45%, var(--gfx-ink)) 45%, var(--gfx-sky2));
   animation: gfx-load-in 220ms ease both;
 }
-.gfx-load-host { position: absolute; inset: 0; z-index: 2147482999; overflow: hidden; pointer-events: none; contain: layout paint; }
+.gfx-load-host { position: absolute; inset: 0; z-index: 2147482999; overflow: hidden; pointer-events: none; contain: layout paint; container-type: size; }
 .gfx-load-host > .gfx-load { pointer-events: auto; }
 ${T} .gf-stage:has(> .gfx-load-host), ${T} .gf-arena:has(> .gfx-load-host) { position: relative !important; overflow: hidden !important; }
 .gfx-load[data-shown] { animation: none; }
@@ -540,9 +543,11 @@ ${T} .gf-stage:has(> .gfx-load-host), ${T} .gf-arena:has(> .gfx-load-host) { pos
   background: radial-gradient(circle, color-mix(in srgb, #fff 80%, transparent), transparent 68%); }
 .gfx-load-shadow { position: absolute; bottom: 3%; left: 50%; width: 46%; height: 7%; translate: -50% 0; border-radius: 50%;
   background: color-mix(in srgb, var(--gfx-line) 28%, transparent); animation: gfx-shadow 0.9s ease-in-out infinite; }
-.gfx-load-hero { position: relative; height: 92%; width: 100%; display: grid; place-items: end center;
+.gfx-load-hero { position: absolute; left: 0; right: 0; bottom: 0; height: 92%; display: grid; place-items: end center;
   transform-origin: 50% 100%; animation: gfx-jump 0.9s cubic-bezier(.4,0,.6,1) infinite; }
-.gfx-load-hero > img { max-height: 100%; max-width: 100%; object-fit: contain; filter: ${STICKER}; -webkit-user-drag: none; user-select: none; }
+/* The picture fills the hero box and fits inside it: a max-height in % does not hold inside this grid, so a
+ * tall SD used to spill far past the box. */
+.gfx-load-hero > img { position: absolute; inset: 0; width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important; object-fit: contain; object-position: 50% 100%; filter: ${STICKER}; -webkit-user-drag: none; user-select: none; }
 .gfx-load-hero > svg { width: 78%; height: auto; overflow: visible; }
 .gfx-load-stage[data-squish] .gfx-load-hero { animation: gfx-squash 380ms ease; }
 @keyframes gfx-jump { 0%, 100% { transform: translateY(0) scale(1.08, 0.92); } 15% { transform: translateY(0) scale(1, 1); }
@@ -565,8 +570,8 @@ ${T} .gf-stage:has(> .gfx-load-host), ${T} .gf-arena:has(> .gfx-load-host) { pos
   background-size: 200% 100%; animation: gfx-stripe 0.8s linear infinite; transition: width 180ms linear; }
 @keyframes gfx-stripe { to { background-position: -1.98em 0; } }
 .gfx-load-runner { position: absolute; bottom: 60%; width: calc(var(--u) * 5.5); height: calc(var(--u) * 5.5); translate: -50% 0;
-  transition: left 180ms linear; display: grid; place-items: end center; animation: gfx-run 0.35s ease-in-out infinite; }
-.gfx-load-runner > img { max-width: 100%; max-height: 100%; object-fit: contain; filter: ${STICKER}; }
+  transition: left 180ms linear; display: block; animation: gfx-run 0.35s ease-in-out infinite; }
+.gfx-load-runner > img { width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important; object-fit: contain; object-position: 50% 100%; filter: ${STICKER}; }
 .gfx-load-runner > svg { width: 100%; height: auto; }
 @keyframes gfx-run { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-18%) rotate(4deg); } }
 .gfx-load-pct { position: absolute; right: 0.8em; top: 50%; translate: 0 -50%; font-size: calc(var(--u) * 1.6); color: var(--gfx-line); }
@@ -899,6 +904,12 @@ ${T} .root:has(:is([data-chat-close], .hm-pk-wrap)) .hm-pk-veil { backdrop-filte
 ${T} .root:has(:is([data-chat-close], .hm-pk-wrap)) [data-pop] { animation: none !important; }
 ${T} .hm-screen:has(:is([data-chat-close], .hm-pk-wrap)) .gfx-lobby .body,
 ${T} .root:has(:is([data-chat-close], .hm-pk-wrap)) .gfx-lobby .body { animation-play-state: paused !important; }
+/* The events tab's scroll boxes are filled to the pixel, so a button dipping as it is pressed overflowed them
+ * for a moment and a scrollbar flashed. They keep scrolling (wheel, drag) without drawing a bar; the long
+ * battle-pass track keeps a thin one. */
+${T} [data-screen="events"] :is(.ev-rail-scroll, .ev-pane, .pv-missions, .sv-fights, .sv-box, .sv-grid) { scrollbar-width: none; }
+${T} [data-screen="events"] :is(.ev-rail-scroll, .ev-pane, .pv-missions, .sv-fights, .sv-box, .sv-grid)::-webkit-scrollbar { display: none; }
+${T} [data-screen="events"] .pv-track { scrollbar-width: thin; }
 ${T} [data-screen="events"], ${T} [data-screen="events"] > .body, ${T} [data-screen="events"] .ev-cols { min-height: 0; min-width: 0; overflow: hidden !important; }
 ${T} [data-screen="events"] .ev-pane.pv { display: grid !important; grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-height: 0; min-width: 0; overflow: hidden !important; padding-bottom: .45em; }
@@ -3003,6 +3014,8 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     return new Blob([bytes], { type: m[1] });
   }
   const extOf = (mime) => (/png/.test(mime) ? ".png" : /webp/.test(mime) ? ".webp" : /jpe?g/.test(mime) ? ".jpg" : ".png");
+  // One drawing at a time across every button: a second request waits its turn, then its own 3–7s.
+  let genChain = Promise.resolve();
   async function makeSd(card, variantKey = "") {
     const w = world();
     if (!w || w.busy.has(card.name)) return;
@@ -3012,7 +3025,14 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     w.busy.add(card.name);
     w.note = "";
     paintSettings();
+    const before = genChain;
+    let release = () => {};
+    genChain = new Promise((res) => { release = res; });
     try {
+      w.note = card.name + " — 앞의 그림을 기다리는 중…";
+      paintSettings();
+      await before;
+      if (disposed) return;
       // A random 3–7s wait before each request, so a batch of SDs is not fired at the image service back to back.
       const wait = 3000 + Math.round(Math.random() * 4000);
       w.note = card.name + " — " + (wait / 1000).toFixed(1) + "초 뒤에 그립니다.";
@@ -3056,6 +3076,7 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
     } catch (e) {
       w.note = card.name + " 그리기 실패: " + e.message;
     } finally {
+      release();
       w.busy.delete(card.name);
       refresh();
     }
