@@ -1,4 +1,4 @@
-/* Gacha UI Style v1.10.4 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
+/* Gacha UI Style v1.10.5 — personal extension for Gacha Forge 1.8.13 on Marinara Engine.
  * Adds "말랑 · 트릭컬풍" to Settings → 화면 → UI 스타일, next to the game's own five, and while it is on:
  *  - its colours: five presets or eight picked colours (the game's theme tokens are derived from them),
  *  - its shapes: thick outlines, buttons that press down, ribbon name tags, polka-dot ground,
@@ -344,9 +344,22 @@ ${T} .vn-who {
   border: 2.5px solid var(--gfx-line) !important; border-radius: 999px !important; clip-path: none !important;
   box-shadow: 0 0.2em 0 var(--gfx-line) !important;
   text-shadow: 0 0.08em 0 color-mix(in srgb, var(--gfx-line) 60%, transparent);
-  transform: translate(0.8em, 0.55em) rotate(-2deg); position: relative; z-index: 4;
+  transform: translate(0.8em, 0.3em) rotate(-2deg); position: relative; z-index: 12;
 }
+/* The name tag's bar sits above the dialogue box so the tag overlaps the box's rim in front of it. */
+${T} .vn-bar { z-index: 6 !important; }
 ${T} .vn-who[data-narration] { background: var(--gfx-pick) !important; color: var(--gfx-line) !important; text-shadow: none; }
+/* The protagonist's thoughts: a lilac cloud with a dashed rim and soft italics, a thought trail off the name tag. */
+${T} .vn-who[data-thought] { background: #B9A3E8 !important; color: #fff !important; border-style: dashed !important; rotate: 2deg; }
+${T} .vn-who[data-thought]::after { content: ""; position: absolute; left: 12%; top: 100%; width: .5em; height: .5em; border-radius: 50%;
+  background: #fff; border: 2px solid var(--gfx-line); box-shadow: -.55em .45em 0 -.08em #fff, -.55em .45em 0 .04em var(--gfx-line); pointer-events: none; }
+${H("[data-gfx-box]")} .vn-box[data-thought] {
+  background: radial-gradient(circle at 12% 0%, color-mix(in srgb, #D9CCF6 70%, transparent), transparent 45%),
+    color-mix(in srgb, #F6F1FF 95%, transparent) !important;
+  border-style: dashed !important; border-color: #8E74C9 !important; border-radius: 34px !important;
+  box-shadow: 0 0.3em 0 color-mix(in srgb, #8E74C9 70%, var(--gfx-line)), inset 0 0 0 0.28em color-mix(in srgb, #E5DAFB 70%, transparent) !important;
+}
+${H("[data-gfx-box]")} .vn-box[data-thought] .vn-text { font-style: italic; color: #5E4A8C !important; }
 ${H("[data-gfx-box]")} .vn-box {
   background: color-mix(in srgb, var(--gfx-card) 95%, transparent) !important;
   border: 3px solid var(--gfx-line) !important; border-radius: 22px !important; clip-path: none !important;
@@ -655,9 +668,10 @@ ${TM} .slot.filled:nth-child(2) > img.gfx-sd { animation-delay: -0.9s; } ${TM} .
 .gfx-team img:not(.portrait) { display: block; height: 100%; width: auto; max-width: none !important; max-height: none !important; object-fit: contain; object-position: 50% 100%; scale: var(--hf, 1); transform-origin: 50% 100%; filter: ${STICKER}; }
 .gfx-team img.portrait { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; border-radius: 14px; border: 3px solid #fff; outline: 2.5px solid var(--gfx-line, #6B4528); filter: none; }
 ${TM} .briefing .gfx-team { flex: 0 1 calc(var(--f, 10px) * 17); min-height: 0; width: min(88%, 110cqh); height: 24%; max-height: 26%; gap: .6em; margin: .4em 0 .8em; }
-${TM} .briefing .gfx-team > span { flex: 1 1 0; min-width: 0; aspect-ratio: auto; animation: none; }
-${TM} .briefing .gfx-team img { width: 100% !important; max-width: 100% !important; height: 100%; object-fit: contain; }
-${TM} .briefing .gfx-team img:not(.portrait) { scale: 1; }
+/* Every SD the same height with its feet on one line (a fixed width made wide ones short and tall ones sink). */
+${TM} .briefing .gfx-team > span { flex: 0 1 auto; min-width: 0; height: 100%; aspect-ratio: .62; animation: none; }
+${TM} .briefing .gfx-team img.portrait { width: 100% !important; max-width: 100% !important; height: 100%; object-fit: contain; }
+${TM} .briefing .gfx-team img:not(.portrait) { position: absolute; bottom: 0; left: 50%; translate: -50% 0; width: auto !important; height: 100% !important; scale: var(--hf, 1); }
 ${TM} .briefing .gfx-team > span::after { bottom: 0; animation: none; }
 ${TM} .briefing { gap: calc(var(--f, 10px) * .7); overflow: hidden; }
 ${TM} .slot[data-gfx-sd] > img.gfx-sd { left: 5%; width: 90%; bottom: 18%; height: 78%; }
@@ -2455,9 +2469,18 @@ ${T} [data-screen="reveal"] .rv-foot { background: color-mix(in srgb, var(--gfx-
    * gets the screen only past 1.4s, and once shown it stays at least 0.9s. */
   let loadingSince = 0, lastWantAt = 0;
   const LOAD_AFTER = { heavy: 350, battle: 1400, light: 1000 }, LOAD_GAP = 450, LOAD_MIN = 900;
+  // The game tags a thought "Name (thought)" as it turns each line; under 말랑 it reads "Name (속마음)".
+  function relabelThought(h) {
+    const who = current && h?._beatState === "ready" ? h.shadowRoot?.querySelector(".vn-who[data-thought]") : null;
+    if (!who) return;
+    const t = who.textContent;
+    if (/\(thought\)\s*$/i.test(t)) who.textContent = t.replace(/\(thought\)\s*$/i, "(속마음)");
+    else if (/^\s*Thought\s*$/i.test(t)) who.textContent = "속마음";
+  }
   function tickLoading() {
     if (disposed) return;
     const h = host();
+    relabelThought(h);
     // The battle phase as a host attribute, for rules that differ before and during the fight.
     const phase = h && h._hudView === "combat" ? String(h._combatPhase || "") : "";
     if (h && (h.getAttribute("data-gfx-phase") || "") !== phase) { if (phase) h.setAttribute("data-gfx-phase", phase); else h.removeAttribute("data-gfx-phase"); }
